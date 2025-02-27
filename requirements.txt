@@ -1,0 +1,10 @@
+fastapi==0.115.8
+ipython==8.12.3
+openai==1.64.0
+Pillow==11.1.0
+PyAutoGUI==0.9.54
+pydantic==2.10.6
+pyperclip==1.9.0
+qwen_agent==0.0.15
+transformers==4.49.0
+websockets==15.0
