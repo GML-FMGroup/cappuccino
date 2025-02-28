@@ -1,9 +1,7 @@
 import re
 import json
-import time
 import base64
 from openai import OpenAI
-from computer.gui_action import GuiAction
 from PIL import Image
 from IPython.display import display
 from transformers.models.qwen2_vl.image_processing_qwen2_vl_fast import smart_resize
@@ -198,7 +196,7 @@ class Qwen2_5_VL_executor:
         computer_use = ComputerUse(
             cfg={"display_width_px": resized_width, "display_height_px": resized_height, "controlledOS": self.controlledOS}
         )
-        gui_action = GuiAction(self.controlledOS)
+        
         # Build messages
         system_message = NousFnCallPrompt.preprocess_fncall_messages(
             messages=[
@@ -242,9 +240,5 @@ class Qwen2_5_VL_executor:
         output_text = completion.choices[0].message.content
         # 解析模型输出
         actions = self._parse_tool_call(output_text)
-        # 逐个执行动作
-        for action in actions:
-            gui_action.perform_action(action["arguments"])
-            time.sleep(0.8)
-
-        return output_text
+        
+        return output_text, actions

@@ -4,7 +4,7 @@ import json
 import re
 from openai import OpenAI
 
-class QwenVL_planner:
+class general_planner:
     def __init__(self, planner_api_key, planner_base_url, planner_model, controlledOS):
         self.planner_client = OpenAI(
             api_key=planner_api_key,
@@ -53,20 +53,16 @@ You can give multiple tasks you can think of based on the current screenshot.
         messages=[
             {
                 "role": "system",
-                "content": [
-                    {"type": "text", "text": self._get_system_prompt()},
-                ],
+                "content": self._get_system_prompt(),
             },
             {
                 "role": "user",
                 "content": [
+                    {"type": "text", "text": query},
                     {
                         "type": "image_url",
-                        "min_pixels": min_pixels,
-                        "max_pixels": max_pixels,
                         "image_url": {"url": f"data:image/png;base64,{base64_image}"},
                     },
-                    {"type": "text", "text": query},
                 ],
             }
         ]

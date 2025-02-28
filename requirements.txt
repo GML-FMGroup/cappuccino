@@ -9,3 +9,5 @@ qwen_agent==0.0.15
 transformers==4.49.0
 websockets==15.0
 uvicorn==0.34.0
+torch
+python-dateutil

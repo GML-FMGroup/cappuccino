@@ -1,10 +1,11 @@
 import os
 import platform
 import logging
-from openai import OpenAI
+import time
 from computer.screen_capture import capture_screen
-from llm.planner.QwenVL_planner import QwenVL_planner
+from llm.planner.general_planner import general_planner
 from llm.executor.Qwen2_5_VL_executor import Qwen2_5_VL_executor
+from computer.gui_action import GuiAction
 
 
 class Agent:
@@ -12,7 +13,10 @@ class Agent:
 
         self.send_callback = send_callback
         self.data = data
-        
+        # 系统类型：Darwin(Macos), Windows, Linux
+        self.controlledOS = platform.system()
+        self.gui_action = GuiAction(self.controlledOS)
+
         # 创建日志文件夹
         if not os.path.exists('temp'):
             os.makedirs('temp')
@@ -26,15 +30,12 @@ class Agent:
             ]
         )
 
-        # 系统类型：Darwin(Macos), Windows, Linux
-        self.controlledOS = platform.system()
-
         # 初始化planner和executor
         if self.data["agent_type"] == 'planner':
-            self.planner = QwenVL_planner(
-                self.data["planner_api_key"], 
-                self.data["planner_base_url"], 
-                self.data["planner_model"], 
+            self.planner = general_planner(
+                self.data["planner_api_key"],
+                self.data["planner_base_url"],
+                self.data["planner_model"],
                 self.controlledOS
             )
         self.executor = Qwen2_5_VL_executor(
@@ -47,11 +48,8 @@ class Agent:
 
 
     async def process(self):
-
         # 如果是planner模式，需要先生成任务流再执行，让planner model判断是否完成指定任务
-        # 任务流tasks格式：[task1, task2, task3, ...]
         if self.data["agent_type"] == 'planner':
-
             planner_output_text, tasks = await self.pipeline_planner(self.data["user_query"])
             executor_output_text = await self.pipeline_executor(tasks)
 
@@ -62,6 +60,7 @@ class Agent:
 
     async def pipeline_planner(self, query):
         # 使用planner生成任务流
+        # 任务流tasks格式：[task1, task2, task3, ...]
         # 获取屏幕截图并获取截图路径
         screenshot_path = capture_screen()
         output_text, tasks = self.planner.perform_planning(
@@ -75,15 +74,24 @@ class Agent:
         return output_text, tasks
 
     async def pipeline_executor(self, tasks):
-        # 逐步执行任务流
+        # 使用executor逐步执行任务流
+        # action参数示例：
+        # arguments: {"action": "left_click", "coordinate": [230, 598]}
+        # arguments: {"action": "type", "text": "英雄联盟"}
+        # arguments: {"action": "key", "keys": ["enter"]}
         for task in tasks:
             # 获取屏幕截图并获取截图路径
             screenshot_path = capture_screen()
             # 调用executor生成并执行动作
-            output_text = self.executor.perform_executor(
+            output_text, actions = self.executor.perform_executor(
                 screenshot_path, 
                 task
             )
+            # 逐个执行动作
+            for action in actions:
+                self.gui_action.perform_action(action["arguments"])
+                time.sleep(1)
+
             logging.info(f"executor_model: {self.data['executor_model']}\ntask: {task}\noutput_text: {output_text}\n\n")
             await self.send_callback(f"task: {task} executor_output: {output_text}", is_send_image=True)
                 
