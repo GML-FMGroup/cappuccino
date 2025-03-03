@@ -26,7 +26,7 @@ class Agent:
             format='%(asctime)s - %(levelname)s - %(message)s',  # 日志格式
             handlers=[
                 logging.FileHandler(os.path.join('temp', 'agent.log')),  # 输出到文件
-                logging.StreamHandler()  # 输出到控制台
+                # logging.StreamHandler()  # 输出到控制台
             ]
         )
 

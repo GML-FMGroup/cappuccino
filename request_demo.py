@@ -3,10 +3,10 @@ import websockets
 import json
 
 async def send_request():
-    url = "ws://172.16.8.34:8000/chat"  # WebSocket 服务地址
+    url = "ws://0.0.0.0:8000/chat"  # WebSocket 服务地址
     async with websockets.connect(url) as websocket:
         infro = {
-            "token": 111111
+            "token": "966112"
         }
         await websocket.send(json.dumps(infro))
 
@@ -26,15 +26,15 @@ async def send_request():
 
         data = {
             "agent_type": "planner",
-            "planner_model": "gpt-4o",
-            "planner_provider": "openai",
+            "planner_model": "deepseek-v3",
+            "planner_provider": "dashscope",
             "planner_api_key": "",
             "planner_base_url": "",
             "executor_model": "qwen2.5-vl-7b-instruct",
             "executor_provider": "dashscope",
             "executor_api_key": "",
             "executor_base_url": "",
-            "user_query": "I want to watch python related videos on Bilibili",
+            "user_query": "I want to find projects related to gui agent on GitHub",
             "user_tasks": [],
         }
         await websocket.send(json.dumps(data))

@@ -1,8 +1,8 @@
-import os
 import base64
 import json
-import re
 from openai import OpenAI
+
+TEXT_MODEL = ["deepseek-v3"]
 
 class general_planner:
     def __init__(self, planner_api_key, planner_base_url, planner_model, controlledOS):
@@ -12,6 +12,10 @@ class general_planner:
         )
         self.planner_model = planner_model
         self.controlledOS = controlledOS
+        
+    def _image_required(self):
+        if self.planner_model in TEXT_MODEL:
+            return False
 
     def _get_system_prompt(self):
         return f"""
@@ -48,8 +52,6 @@ You can give multiple tasks you can think of based on the current screenshot.
         return json_dict["Tasks"]
 
     def perform_planning(self, screenshot_path, query, history, min_pixels=3136, max_pixels=12845056):
-        base64_image = self.encode_image(screenshot_path)
-
         messages=[
             {
                 "role": "system",
@@ -58,14 +60,20 @@ You can give multiple tasks you can think of based on the current screenshot.
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": query},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/png;base64,{base64_image}"},
-                    },
-                ],
+                    {"type": "text", "text": query}
+                ]
             }
         ]
+
+        if self._image_required():
+            base64_image = self.encode_image(screenshot_path)
+            messages[1]["content"].append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/png;base64,{base64_image}"},
+                }
+            )
+
         completion = self.planner_client.chat.completions.create(
             model=self.planner_model,
             messages=messages

@@ -56,10 +56,10 @@ Currently, this method is temporarily used to experience Auto Mate, and we will 
 ### Supported models
 | Planner - API           | Planner - Local         | Executor - API          | Executor - Local        |
 |-------------------------|-------------------------|-------------------------|-------------------------|
-| qwen-vl-max-2025-01-25  |                         | Qwen2.5-VL              | Qwen2.5-VL              |
+| qwen-vl-max-2025-01-25  | deepseek-v3             | Qwen2.5-VL              | Qwen2.5-VL              |
 | qwen-vl-plus-2025-01-25 |                         |                         |                         |
 | gpt-4o                  |                         |                         |                         |
-|                         |                         |                         |                         |
+| deepseek-v3             |                         |                         |                         |
 
 ### ⚠️ Notice
 - Please make sure that the name is correct and that the supplier supports the model when selecting a model.
