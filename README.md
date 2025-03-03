@@ -16,7 +16,7 @@ In addition, I will launch a local React-based interface in the near future to f
 
 Your star🌟 will be the biggest motivation for me to update!
 
-## 👨‍💻 Update
+## 📰 Update
 
 - **[2025/02/27]** 🏆 Now you can experience AutoMate with qwen.
 
@@ -32,7 +32,7 @@ pip install -r requirements.txt
 ```
 ### Start service
 ```bash
-uvicorn server:server --host 0.0.0.0 --port 8000 --reload
+uvicorn server:server --host 0.0.0.0 --port 8000
 ```
 You will see your **local ip**, **token** in the console.
 ```bash
@@ -54,10 +54,13 @@ Currently, this method is temporarily used to experience Auto Mate, and we will 
 ### Design concept
 
 ### Supported models
-| planner  | executor   | 
-|----------|------------|
-| Qwen     | Qwen2.5-VL |
-| gpt-4o   |            |
+| Planner - API           | Planner - Local         | Executor - API          | Executor - Local        |
+|-------------------------|-------------------------|-------------------------|-------------------------|
+| qwen-vl-max-2025-01-25  |                         | Qwen2.5-VL              | Qwen2.5-VL              |
+| qwen-vl-plus-2025-01-25 |                         |                         |                         |
+| gpt-4o                  |                         |                         |                         |
+|                         |                         |                         |                         |
 
 ### ⚠️ Notice
 - Please make sure that the name is correct and that the supplier supports the model when selecting a model.
+- Our current interface is implemented based on the openai library. Please make sure the provider or local deployment support provided.

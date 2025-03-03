@@ -65,8 +65,7 @@ def get_local_ip():
 print(f"Local IP Address: {get_local_ip()}")
 
 # 生成一个6位数的token
-# token = str(random.randint(100000, 999999))
-token = 111111
+token = str(random.randint(100000, 999999))
 print(f"Generated token: {token}")
 
 # 创建 FastAPI 实例
