@@ -10,7 +10,7 @@ We provide two ways to use: **planner** and **workflow**. In **planner** mode, y
 
 ## 🤔 Future Work
 
-In the future, we will support more models such as deepseek, optimize the agent's performance, and also work on making our own executor model or benchmark. 
+In the future, we will support more models, optimize the agent's performance, and also work on making our own executor model or benchmark. 
 
 In addition, I will launch a local React-based interface in the near future to facilitate more users.
 
@@ -18,6 +18,7 @@ Your star🌟 will be the biggest motivation for me to update!
 
 ## 📰 Update
 
+- **[2025/02/27]** 👨‍💻 Deepseek-v3 is now supported as a planner.
 - **[2025/02/27]** 🏆 Now you can experience AutoMate with qwen.
 
 ## 🎥 Demo Video
