@@ -3,10 +3,12 @@ import platform
 import logging
 import time
 from computer.screen_capture import capture_screen
+from llm.planner.text_planner import text_planner
 from llm.planner.general_planner import general_planner
 from llm.executor.Qwen2_5_VL_executor import Qwen2_5_VL_executor
 from computer.gui_action import GuiAction
 
+TEXT_MODEL = ["deepseek-v3"]
 
 class Agent:
     def __init__(self, send_callback, data):
@@ -32,19 +34,29 @@ class Agent:
 
         # 初始化planner和executor
         if self.data["agent_type"] == 'planner':
-            self.planner = general_planner(
-                self.data["planner_api_key"],
-                self.data["planner_base_url"],
-                self.data["planner_model"],
-                self.controlledOS
-            )
+            if self.data["planner_model"] in TEXT_MODEL:
+                self.planner = text_planner(
+                    self.data["executor_api_key"],
+                    self.data["executor_base_url"],
+                    self.data["executor_model"],
+                    self.data["planner_api_key"],
+                    self.data["planner_base_url"],
+                    self.data["planner_model"],
+                    self.controlledOS
+                )
+            else:
+                self.planner = general_planner(
+                    self.data["planner_api_key"],
+                    self.data["planner_base_url"],
+                    self.data["planner_model"],
+                    self.controlledOS
+                )
         self.executor = Qwen2_5_VL_executor(
             self.data["executor_api_key"],
             self.data["executor_base_url"],
             self.data["executor_model"],
             self.controlledOS,
         )
-        self.history = []
 
 
     async def process(self):
@@ -59,16 +71,14 @@ class Agent:
 
 
     async def pipeline_planner(self, query):
-        # 使用planner生成任务流
+        # 使用planner生成任务流，若planner model为text_planner，则使用executor model作为vision model
         # 任务流tasks格式：[task1, task2, task3, ...]
         # 获取屏幕截图并获取截图路径
         screenshot_path = capture_screen()
-        output_text, tasks = self.planner.perform_planning(
+        output_text, tasks = self.planner(
             screenshot_path,
             query,
-            self.history
         )
-        self.history.append(output_text)
         logging.info(f"planner_model: {self.data['planner_model']}\nquery: {query}\noutput_text: {output_text}\n\n")
         await self.send_callback(f"planner_output: {output_text}")
         return output_text, tasks
@@ -83,16 +93,17 @@ class Agent:
             # 获取屏幕截图并获取截图路径
             screenshot_path = capture_screen()
             # 调用executor生成并执行动作
-            output_text, actions = self.executor.perform_executor(
+            output_text, actions = self.executor(
                 screenshot_path, 
                 task
             )
             # 逐个执行动作
             for action in actions:
-                self.gui_action.perform_action(action["arguments"])
+                self.gui_action(action["arguments"])
                 time.sleep(1)
 
             logging.info(f"executor_model: {self.data['executor_model']}\ntask: {task}\noutput_text: {output_text}\n\n")
             await self.send_callback(f"task: {task} executor_output: {output_text}", is_send_image=True)
+            time.sleep(1)
                 
         return output_text

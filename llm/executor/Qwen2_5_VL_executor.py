@@ -167,7 +167,7 @@ class Qwen2_5_VL_executor:
             actions = []
         return actions
 
-    def perform_executor(self, screenshot_path, task, min_pixels=3136, max_pixels=12845056):
+    def __call__(self, screenshot_path, task, min_pixels=3136, max_pixels=12845056):
         """
         Perform GUI grounding using Qwen model to interpret user query on a screenshot.
         

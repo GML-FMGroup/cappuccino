@@ -6,7 +6,7 @@ async def send_request():
     url = "ws://0.0.0.0:8000/chat"  # WebSocket 服务地址
     async with websockets.connect(url) as websocket:
         infro = {
-            "token": "966112"
+            "token": "111111"
         }
         await websocket.send(json.dumps(infro))
 
@@ -34,7 +34,7 @@ async def send_request():
             "executor_provider": "dashscope",
             "executor_api_key": "",
             "executor_base_url": "",
-            "user_query": "I want to find projects related to gui agent on GitHub",
+            "user_query": "Please open a well-known video website to play python-related videos to me",
             "user_tasks": [],
         }
         await websocket.send(json.dumps(data))
@@ -53,14 +53,17 @@ async def send_request():
                 try:
                     response = json.loads(response)  # 将字符串解析为 JSON 对象
                     print("Received JSON data:", response)
-                    # 在这里处理你收到的 JSON 数据
+                    if response["message"] == "Process processing":
+                        await websocket.send(json.dumps({"message": "Successfully obtained data"}))
+                    elif response["message"] == "Processing complete" or response["message"] == "Process interruption":
+                        await websocket.close()  # 关闭 WebSocket 连接
+                        break
+
                 except json.JSONDecodeError:
                     print("Failed to decode JSON data")
 
-                if response["message"] == "Processing complete":
-                    break
-                
-                await asyncio.sleep(1)
+
+                await asyncio.sleep(0.5)
 
 
 # 运行客户端

@@ -1,10 +1,18 @@
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 from agent import Agent
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import os
 import io
 import random
 import socket
+
+# message 状态说明
+# Invalid token: token错误
+# Token verification passed: token验证通过
+# Process processing: 处理中
+# Successfully obtained data: 成功获取数据（在处理中时，由客户端发送，用于保持连接）
+# Processing complete: 处理完成
+# Process interruption: 处理中断
 
 OPENAI_URL = "https://api.openai.com/v1"
 DASHSCOPE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -80,12 +88,13 @@ async def websocket_chat(websocket: WebSocket):
 
     try:
         # 验证token，避免异常接口调用
-        await websocket.send_json({"message": "Please provide the token"})
         received_token = await websocket.receive_json()
         if received_token.get("token") != token:
             await websocket.send_json({"message": "Invalid token"})
             await websocket.close()
             return
+        else:
+            await websocket.send_json({"message": "Token verification passed"})
 
         async def send_callback(intermediate_output, is_send_image=False):
             # 发送处理过程的信息
@@ -104,6 +113,7 @@ async def websocket_chat(websocket: WebSocket):
                 screenshot_bytes.seek(0)
                 await websocket.send_bytes(screenshot_bytes.read())
             await websocket.send_json(intermediate_infor)
+            await websocket.receive_json()
 
         while True:
             # 接收数据并处理
@@ -117,5 +127,9 @@ async def websocket_chat(websocket: WebSocket):
             # 返回处理结果
             await websocket.send_json({"message": "Processing complete"})
 
+
     except WebSocketDisconnect:
         print("Client disconnected")
+
+    except Exception as e:
+        await websocket.send_json({"message": "Process interruption", "error": f"{e}"})

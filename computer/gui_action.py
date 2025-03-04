@@ -15,7 +15,7 @@ class GuiAction:
         with open(log_file_path, 'a') as log_file:
             log_file.write(message + '\n')
 
-    def perform_action(self, arguments):
+    def __call__(self, arguments):
         # 参数示例：
         # arguments: {"action": "left_click", "coordinate": [230, 598]}
         # arguments: {"action": "type", "text": "英雄联盟"}
