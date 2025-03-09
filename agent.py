@@ -4,7 +4,7 @@ import logging
 import time
 from computer.screen_capture import capture_screen
 from llm.planner.text_planner import text_planner
-from llm.planner.general_planner import general_planner
+from llm.planner.multimodal_planner import multimodal_planner
 from llm.executor.Qwen2_5_VL_executor import Qwen2_5_VL_executor
 from computer.gui_action import GuiAction
 
@@ -45,7 +45,7 @@ class Agent:
                     self.controlledOS
                 )
             else:
-                self.planner = general_planner(
+                self.planner = multimodal_planner(
                     self.data["planner_api_key"],
                     self.data["planner_base_url"],
                     self.data["planner_model"],
@@ -75,12 +75,17 @@ class Agent:
         # 任务流tasks格式：[task1, task2, task3, ...]
         # 获取屏幕截图并获取截图路径
         screenshot_path = capture_screen()
-        output_text, tasks = self.planner(
+        output_text, description, tasks = self.planner(
             screenshot_path,
             query,
         )
         logging.info(f"planner_model: {self.data['planner_model']}\nquery: {query}\noutput_text: {output_text}\n\n")
-        await self.send_callback(f"planner_output: {output_text}")
+        intermediate_output = {
+            "query": query,
+            "description": description,
+            "tasks": tasks
+        }
+        await self.send_callback("planner", intermediate_output)
         return output_text, tasks
 
     async def pipeline_executor(self, tasks):
@@ -100,10 +105,14 @@ class Agent:
             # 逐个执行动作
             for action in actions:
                 self.gui_action(action["arguments"])
-                time.sleep(1)
+                time.sleep(0.5)
 
             logging.info(f"executor_model: {self.data['executor_model']}\ntask: {task}\noutput_text: {output_text}\n\n")
-            await self.send_callback(f"task: {task} executor_output: {output_text}", is_send_image=True)
             time.sleep(1)
+            intermediate_output = {
+                "task": task,
+                "actions": actions
+            }
+            await self.send_callback("executor", intermediate_output)
                 
         return output_text

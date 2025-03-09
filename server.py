@@ -5,6 +5,12 @@ import os
 import io
 import random
 import socket
+import asyncio
+import pyautogui
+import uvicorn
+import threading
+from uvicorn.config import Config
+from uvicorn.server import Server
 
 # message 状态说明
 # Invalid token: token错误
@@ -51,7 +57,7 @@ def predefined_url(data: dict) -> dict:
     return data
 
 def validate_and_update_data(data: dict) -> dict:
-    for field in RequestParams.__fields__:
+    for field in RequestParams.model_fields:  # Updated from __fields__ to model_fields
         if field not in data:
             data[field] = ""
     data = predefined_url(data)
@@ -69,17 +75,16 @@ def get_local_ip():
     except Exception as e:
         return f"Error: {e}"
 
-# 输出本机局域网 IP
-print(f"Local IP Address: {get_local_ip()}")
 
 # 生成一个6位数的token
 token = str(random.randint(100000, 999999))
 print(f"Generated token: {token}")
 
-# 创建 FastAPI 实例
-server = FastAPI()
+# 创建两个单独的 FastAPI 实例，一个用于聊天，一个用于截图
+chat_server = FastAPI()
+screenshot_server = FastAPI()
 
-@server.websocket("/chat")
+@chat_server.websocket("/chat")
 async def websocket_chat(websocket: WebSocket):
     await websocket.accept()
 
@@ -96,22 +101,13 @@ async def websocket_chat(websocket: WebSocket):
         else:
             await websocket.send_json({"message": "Token verification passed"})
 
-        async def send_callback(intermediate_output, is_send_image=False):
+        async def send_callback(role, intermediate_output):
             # 发送处理过程的信息
             intermediate_infor = {
                 "message": "Process processing",
+                "role": role,
                 "intermediate_output": intermediate_output
             }
-            if is_send_image:
-                # Capture and send a screenshot with reduced resolution
-                import pyautogui
-                screenshot = pyautogui.screenshot()
-                screenshot = screenshot.resize((screenshot.width // 2, screenshot.height // 2))  # Reduce resolution by half
-                screenshot = screenshot.convert("RGB")  # Convert to RGB mode
-                screenshot_bytes = io.BytesIO()
-                screenshot.save(screenshot_bytes, format='JPEG')
-                screenshot_bytes.seek(0)
-                await websocket.send_bytes(screenshot_bytes.read())
             await websocket.send_json(intermediate_infor)
             await websocket.receive_json()
 
@@ -119,17 +115,99 @@ async def websocket_chat(websocket: WebSocket):
             # 接收数据并处理
             data = await websocket.receive_json()
             data = validate_and_update_data(data)
-
-            # 调用agent处理数据
+            print("The data has been received, and the agent execution starts")
+            
+            # 使用 create_task 来确保 agent.process() 不会阻塞事件循环
             agent = Agent(send_callback, data)
             await agent.process()
-
+            
             # 返回处理结果
+            print("Processing complete")
             await websocket.send_json({"message": "Processing complete"})
-
 
     except WebSocketDisconnect:
         print("Client disconnected")
 
     except Exception as e:
         await websocket.send_json({"message": "Process interruption", "error": f"{e}"})
+
+@screenshot_server.websocket("/screenshots")
+async def websocket_screenshots(websocket: WebSocket):
+    await websocket.accept()
+    connection_active = True
+
+    try:
+        # 验证token
+        received_token = await websocket.receive_json()
+        if received_token.get("token") != token:
+            await websocket.send_json({"message": "Invalid token"})
+            await websocket.close()
+            return
+        else:
+            await websocket.send_json({"message": "Token verification passed"})
+        
+        # 定期发送截图
+        while connection_active:
+            try:
+                # Capture and send a screenshot with reduced resolution
+                screenshot = pyautogui.screenshot()
+                screenshot = screenshot.resize((screenshot.width // 2, screenshot.height // 2))
+                screenshot = screenshot.convert("RGB")
+                screenshot_bytes = io.BytesIO()
+                screenshot.save(screenshot_bytes, format='JPEG')
+                screenshot_bytes.seek(0)
+                
+                # 发送截图
+                await websocket.send_bytes(screenshot_bytes.read())
+                
+                # 等待一秒后发送下一张截图
+                await asyncio.sleep(0.2)
+            except WebSocketDisconnect:
+                print("Screenshot client disconnected")
+                connection_active = False
+                break
+            except Exception as inner_e:
+                print(f"Error capturing/sending screenshot: {inner_e}")
+                if "close message has been sent" in str(inner_e):
+                    print("Connection closed, stopping screenshot sending")
+                    connection_active = False
+                    break
+                await asyncio.sleep(0.2)  # 即使发生错误也等待，避免错误循环过快
+                
+    except WebSocketDisconnect:
+        print("Screenshot client disconnected")
+    except Exception as e:
+        print(f"Screenshot connection error: {e}")
+    finally:
+        # 确保在任何情况下都标记连接已关闭
+        connection_active = False
+        print("Screenshot connection terminated")
+
+def run_screenshot_server():
+    """Run the screenshots WebSocket server in a separate process."""
+    config = Config(app=screenshot_server, host="0.0.0.0", port=8001, log_level="info")
+    server = Server(config=config)
+    # Use a new event loop for the screenshots server
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(server.serve())
+
+def main():
+    """Run both the chat and screenshots WebSocket servers."""
+    host = "0.0.0.0"
+    chat_port = 8000
+    screenshot_port = 8001
+    
+    local_ip = get_local_ip()
+    print(f"Chat WebSocket: ws://{local_ip}:{chat_port}/chat")
+    print(f"Screenshots WebSocket: ws://{local_ip}:{screenshot_port}/screenshots")
+    
+    # Start the screenshots server in a separate thread
+    screenshot_thread = threading.Thread(target=run_screenshot_server, daemon=True)
+    screenshot_thread.start()
+    
+    # Run the chat server in the main thread
+    uvicorn.run(chat_server, host=host, port=chat_port)
+
+if __name__ == "__main__":
+    main()

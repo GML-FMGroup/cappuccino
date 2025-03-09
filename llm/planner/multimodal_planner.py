@@ -1,8 +1,7 @@
-import base64
 from openai import OpenAI
 from .planner_utils import get_system_prompt, parse_tasks, encode_image
 
-class general_planner:
+class multimodal_planner:
     def __init__(self, planner_api_key, planner_base_url, planner_model, controlledOS):
         self.planner_client = OpenAI(
             api_key=planner_api_key,
@@ -35,5 +34,5 @@ class general_planner:
             messages=messages
         )
         output_text = completion.choices[0].message.content
-        tasks = parse_tasks(output_text)
-        return output_text, tasks
+        description, tasks = parse_tasks(output_text)
+        return output_text, description, tasks

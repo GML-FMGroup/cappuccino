@@ -6,37 +6,24 @@ async def send_request():
     url = "ws://0.0.0.0:8000/chat"  # WebSocket 服务地址
     async with websockets.connect(url) as websocket:
         infro = {
-            "token": "111111"
+            "token": "214928"
         }
         await websocket.send(json.dumps(infro))
 
-        # data = {
-        #     "agent_type": "workflow",
-        #     "planner_model": "",
-        #     "planner_provider": "",
-        #     "planner_api_key": "",
-        #     "planner_base_url": "",
-        #     "executor_model": "qwen2.5-vl-7b-instruct",
-        #     "executor_provider": "dashscope",
-        #     "executor_api_key": "",
-        #     "executor_base_url": "",
-        #     "user_query": "",
-        #     "user_tasks": ["search 'https://www.bilibili.com/' in search box", "search 'python' in bilibili search box", "click on the first video"],
-        # }
-
         data = {
-            "agent_type": "planner",
-            "planner_model": "deepseek-v3",
-            "planner_provider": "dashscope",
+            "agent_type": "workflow",
+            "planner_model": "",
+            "planner_provider": "",
             "planner_api_key": "",
             "planner_base_url": "",
             "executor_model": "qwen2.5-vl-7b-instruct",
             "executor_provider": "dashscope",
             "executor_api_key": "",
             "executor_base_url": "",
-            "user_query": "Please open a well-known video website to play python-related videos to me",
-            "user_tasks": [],
+            "user_query": "",
+            "user_tasks": ["打开哔哩哔哩","搜索python"],
         }
+
         await websocket.send(json.dumps(data))
 
         while True:

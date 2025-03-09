@@ -36,4 +36,4 @@ def encode_image(image_path):
 def parse_tasks(output_text):
         json_str = output_text.replace("```json","").replace("```","").strip()
         json_dict = json.loads(json_str)
-        return json_dict["Tasks"]
+        return json_dict["Description"], json_dict["Tasks"]

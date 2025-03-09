@@ -86,5 +86,5 @@ Please provide a comprehensive and detailed description, ensuring that all aspec
             messages=messages
         )
         output_text = completion.choices[0].message.content
-        tasks = parse_tasks(output_text)
-        return output_text, tasks
+        description, tasks = parse_tasks(output_text)
+        return output_text, description, tasks
