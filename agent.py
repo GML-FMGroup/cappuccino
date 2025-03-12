@@ -108,11 +108,12 @@ class Agent:
                 time.sleep(0.5)
 
             logging.info(f"executor_model: {self.data['executor_model']}\ntask: {task}\noutput_text: {output_text}\n\n")
-            time.sleep(1)
             intermediate_output = {
                 "task": task,
                 "actions": actions
             }
             await self.send_callback("executor", intermediate_output)
+            time.sleep(1)
+
                 
         return output_text

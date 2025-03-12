@@ -1,14 +1,12 @@
-<p align="center">
-    <img src="./assets/AutoMate_logo.png" alt="Logo" width="30%">
-</p>
+# ☕️ cappuccino
 
 ## 💡 Overview
 
-**AutoMate** is an GUI Agent based on desktop screenshots. You can use the API directly to get started quickly or deploy LLM on local servers for greater security.
+**cappuccino** is an GUI Agent based on desktop screenshots. You can use the API directly to get started quickly or deploy LLM on local servers for greater security.
 
 We provide two ways to use: **Planner** and **Workflow**. In **Planner** mode, you can enter complex instructions and let LLM help you plan the tasks of completing the instructions. In **Workflow** mode, you can formulate a series of simple instructions for LLM to execute to achieve more stable results.
 
-You can use AutoMate by [AutoMate-Client](https://github.com/GML-FMGroup/AutoMate-Client) 🖥️, or use the request_demo to write scripts to call AutoMate according to your needs.
+You can use cappuccino by [cappuccino-client](https://github.com/GML-FMGroup/cappuccino-client) 🖥️, or use the request_demo to write scripts to call cappuccino according to your needs.
 
 ## 🤔 Future Work
 
@@ -18,18 +16,13 @@ Your star🌟 will be the biggest motivation for me to update!
 
 ## 📰 Update
 
-- **[2025/03/09]** 🖥️ We introduced AutoMate-Client for easier initiation commands.
+- **[2025/03/09]** 🖥️ We introduced cappuccino-client for easier initiation commands.
 - **[2025/03/04]** 💥 Deepseek-v3 is now supported as a planner.
-- **[2025/02/27]** 🏆 Now you can experience AutoMate with qwen and gpt-4o.
+- **[2025/02/27]** 🏆 Now you can experience cappuccino with qwen and gpt-4o.
 
 ## 🎥 Demo
 
-<img width="49%" alt="Automate_Client_Planner" src="https://github.com/user-attachments/assets/9330e712-c4dd-4a99-bd80-c69a54570c69" >
-<img width="49%" alt="Automate_Client_Workflow" src="https://github.com/user-attachments/assets/c95275e7-48c0-43b9-8b84-c699cb383d0a">
 
-https://github.com/user-attachments/assets/2effe15b-e164-46d3-a779-df391514a182
-
-https://github.com/user-attachments/assets/9e094395-ba0e-4b6f-8d70-059b26a3c9e8
 
 ## 👨‍💻 Quickstart
 
@@ -40,8 +33,8 @@ The following operations are performed on the computer you need to be controlled
 #### 1.1 Clone the Repository
 
 ```bash
-git clone https://github.com/GML-FMGroup/AutoMate.git
-cd AutoMate
+git clone https://github.com/GML-FMGroup/cappuccino.git
+cd cappuccino
 ```
 #### 1.2 Install Dependencies
 
@@ -77,13 +70,13 @@ python request_demo.py
 
 #### Method 2: GUI Client
 
-You can get a more detailed tutorial on using the GUI Client in [AutoMate-Client](https://github.com/GML-FMGroup/AutoMate-Client) 🖥️
+You can get a more detailed tutorial on using the GUI Client in [cappuccino-client](https://github.com/GML-FMGroup/cappuccino-client) 🖥️
 
 ## 📖 Guide
 
 ### Design concept
 
-We divide AutoMate into three parts: **Model, Server, Client**.
+We divide cappuccino into three parts: **Model, Server, Client**.
 
 - **Model:** You can choose to use vendors like dashscope, openai or a more secure local deployment.
 - **Server:** This is a GUI Agent, which is deployed on a controlled computer, enables the network service to receive instructions from the LAN, and combines the desktop screenshot to the Model, so that the Model can output execution instructions or plan.
