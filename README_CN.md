@@ -1,6 +1,6 @@
 <div align="center">
 <h1><span style="font-size: 60px;">☕️</span> 卡布奇诺</h1>
-中文 | <a href="./README.md">English</a>
+<p>中文 | <a href="./README.md">English</a></p>
 <p>一个解放你双手的本地自动化智能体 🤖</p>
 <p>放心将任务交予我，去静享一杯醇香的卡布奇诺 ☕️</p>
 <p>待你悠然归来，任务早已悄然完成 🍃</p>
@@ -34,9 +34,13 @@
 
 ## 🎥 演示
 
-
+https://github.com/user-attachments/assets/18b6013a-6d45-44d3-bd09-b0b08e0cd2c8
 
 ## 👨‍💻 快速开始
+
+### 0. 硬件准备
+
+目前该项目支持部署在 Windows 和 Mac，由于系统的快捷键和操作方式等差异，不同系统的体验可能会有区别，我们后续还会进行更多的系统适配。
 
 ### 1. 模型部署
 

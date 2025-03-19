@@ -1,6 +1,6 @@
 <div align="center">
 <h1><span style="font-size: 60px;">☕️</span> cappuccino</h1>
-<a href="./README_CN.md">中文</a> | English
+<p><a href="./README_CN.md">中文</a> | English</p>
 <p>A local automated intelligent agent that frees your hands 🤖</p>
 <p>Entrust your tasks to me, and enjoy a rich cup of cappuccino ☕️</p>
 <p>By the time you return, your tasks will be silently completed 🍃</p>
@@ -34,9 +34,13 @@ Your star🌟 will be the biggest motivation for us to update!
 
 ## 🎥 Demo
 
-
+https://github.com/user-attachments/assets/18b6013a-6d45-44d3-bd09-b0b08e0cd2c8
 
 ## 👨‍💻 Quickstart
+
+### 0. Hardware preparation
+
+At present, the project supports the deployment of Windows and Mac. Due to the differences in the shortcut keys and operation methods of the system, the experience of different systems may be different. We will carry out more system adaptation in the future.
 
 ### 1. Model Deployment
 
