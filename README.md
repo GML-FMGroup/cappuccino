@@ -107,7 +107,7 @@ We divide **Cappuccino** into three parts: **Model, Server, Client**.
 For the design of GUI Agent, we mainly divide it into four parts: **🧠Planner, 🤖Dispatcher, ✍️Executor, 🔍Verifier**.
 
 - 🧠**Planner:** Breaks down complex user instructions into multiple tasks for step-by-step execution.
-- 🤖**Dispatcher:** Combines desktop screen and executor functionality to break tasks into multiple subtasks, each being an atomic operation (the smallest unit of human computer control actions, such as: click xx, type xx).
+- 🤖**Dispatcher:** Combined with the functions of the desktop screen and the actuator, the task is broken down into multiple subtasks and assigned to the corresponding actuator, each subtask is an atomic operation (the minimum action unit for human control of the computer, such as: click xx, enter xx).
 - ✍️**Executor:** Combines desktop screen to generate parameters for script execution based on atomic operations.
 - 🔍**Verifier:** Determines whether corresponding tasks have been completed based on desktop screen.
 
