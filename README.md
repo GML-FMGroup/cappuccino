@@ -1,22 +1,34 @@
-# ☕️ cappuccino
+<div align="center">
+<h1><span style="font-size: 60px;">☕️</span> cappuccino</h1>
+<a href="./README_CN.md">中文</a> | English
+<p>A local automated intelligent agent that frees your hands 🤖</p>
+<p>Entrust your tasks to me, and enjoy a rich cup of cappuccino ☕️</p>
+<p>By the time you return, your tasks will be silently completed 🍃</p>
+</div>
 
 ## 💡 Overview
 
-**cappuccino** is an GUI Agent based on desktop screenshots. You can use the API directly to get started quickly or deploy LLM on local servers for greater security.
+**Cappuccino** is a GUI Agent that can control your computer to solve tedious tasks with a simple instruction. AI will generate detailed task plans and execute them. Unlike other existing solutions that parse image elements or use browser interfaces, **cappuccino** is a purely visual solution based on desktop screens, as we believe the parsing process easily loses spatial association information.
 
-We provide two ways to use: **Planner** and **Workflow**. In **Planner** mode, you can enter complex instructions and let LLM help you plan the tasks of completing the instructions. In **Workflow** mode, you can formulate a series of simple instructions for LLM to execute to achieve more stable results.
+You can use the API directly to get started quickly or deploy LLM on local servers for greater security. Send control instructions through Python scripts or visual interface: [cappuccino-client](https://github.com/GML-FMGroup/cappuccino-client) 🖥️.
 
-You can use cappuccino by [cappuccino-client](https://github.com/GML-FMGroup/cappuccino-client) 🖥️, or use the request_demo to write scripts to call cappuccino according to your needs.
+## ✨ Features
+
+- **Local Deployment:** Each part of our architecture provides open-source model options for local deployment, with information transmission through local LAN to protect your privacy.
+- **Easy to Use:** We provide a React-based GUI Client to control the Agent, which is beginner-friendly.
 
 ## 🤔 Future Work
 
-In the future, we will support more models, optimize the agent's performance, and also work on making our own executor model or benchmark. 
+We will support more models, optimize the agent's performance, and work on developing our own small-parameter LLM to reduce deployment costs and improve running speed.
 
-Your star🌟 will be the biggest motivation for me to update!
+We hope more people will pay attention to our project or join us. We will further enrich our system, create a Manus-like product suitable for local deployment, and adapt to more software operations.
+
+Your star🌟 will be the biggest motivation for us to update!
 
 ## 📰 Update
 
-- **[2025/03/09]** 🖥️ We introduced cappuccino-client for easier initiation commands.
+- **[2025/03/19]** 🧠 The system architecture was upgraded to enable more complex tasks.
+- **[2025/03/09]** 🖥️ We introduced cappuccino-client for easier command initiation.
 - **[2025/03/04]** 💥 Deepseek-v3 is now supported as a planner.
 - **[2025/02/27]** 🏆 Now you can experience cappuccino with qwen and gpt-4o.
 
@@ -26,84 +38,85 @@ Your star🌟 will be the biggest motivation for me to update!
 
 ## 👨‍💻 Quickstart
 
-### 1. Server Configuration and Startup
+### 1. Model Deployment
 
-The following operations are performed on the computer you need to be controlled.
+This project supports using vendor APIs or locally deploying LLMs. If you need local deployment, please use an OpenAI-compatible API service. We recommend using vLLM for deployment, referring to the [official tutorial](https://qwen.readthedocs.io/en/latest/deployment/vllm.html#openai-compatible-api-service).
 
-#### 1.1 Clone the Repository
+For model selection, we recommend using deepseek-v3 as the planner, qwen-vl-max as the dispatcher & validator, and qwen2.5-vl-7b as the executor.
+
+### 2. Server Configuration and Startup
+
+The following operations are performed on the computer you want to control.
+
+#### 2.1 Clone the Repository
 
 ```bash
 git clone https://github.com/GML-FMGroup/cappuccino.git
 cd cappuccino
 ```
-#### 1.2 Install Dependencies
+#### 2.2 Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-#### 1.3 Start the Server
+#### 2.3 Start the Server
 
 ```bash
+cd app
 python server.py
 ```
-You will see your **local ip**, **token** in the console.
+You will see your **local IP** and randomly generated **token** in the console. In this example, IP is 192.168.0.100
 ```bash
 Generated token: 854616
 Chat WebSocket: ws://192.168.0.100:8000/chat
 Screenshots WebSocket: ws://192.168.0.100:8001/screenshots
 ```
 
-### 2. Use Client
+### 3. Send Instructions
 
-Run on another device to initiate a network request.
-Of course, you can also run it on the controlled terminal, but our design philosophy is to use another device to send instructions to avoid affecting the computer's execution of operations.
+Run on another device to initiate network requests. Of course, you can also run it on the controlled terminal, but our design philosophy is to use another device to send instructions to avoid affecting the computer's operations.
 
-#### Method 1: Python scripts
+#### Method 1: Python Scripts
 
-1. You need to modify the IP and token in the `request_demo.py`. For the example above, IP is 192.168.0.100
-2. Fill in configuration information and query.
-3. Run Python file.
+1. Modify the IP and token in `request_demo.py`. For example, IP is 192.168.0.100.
+2. Fill in LLM configuration information like API Key, vendor, etc.
+3. Run the Python file.
 ```bash
 python request_demo.py
 ```
 
 #### Method 2: GUI Client
 
-You can get a more detailed tutorial on using the GUI Client in [cappuccino-client](https://github.com/GML-FMGroup/cappuccino-client) 🖥️
+You can find a more detailed tutorial on using the GUI Client in [cappuccino-client](https://github.com/GML-FMGroup/cappuccino-client) 🖥️.
 
 ## 📖 Guide
 
-### Design concept
+### Design Architecture
 
-We divide cappuccino into three parts: **Model, Server, Client**.
+We divide **Cappuccino** into three parts: **Model, Server, Client**.
 
-- **Model:** You can choose to use vendors like dashscope, openai or a more secure local deployment.
-- **Server:** This is a GUI Agent, which is deployed on a controlled computer, enables the network service to receive instructions from the LAN, and combines the desktop screenshot to the Model, so that the Model can output execution instructions or plan.
-- **Client:** Used to send human instructions to server through GUI Interface or Python Scripts.
+- **Model:** You can choose to use vendors like dashscope, openai, or a more secure local deployment.
+- **Server:** GUI Agent deployed on the controlled computer, enables websocket network service to receive instructions from LAN, and combines desktop screenshots with model interaction so the model can output execution instructions or plans.
+- **Client:** Used to send human instructions to the server through GUI Interface or Python Scripts.
 
-For the design of GUI Agent, we divide it into two parts: **🧠Planner and ✍️Executor**.
+For the design of GUI Agent, we mainly divide it into four parts: **🧠Planner, 🤖Dispatcher, ✍️Executor, 🔍Verifier**.
 
-- 🧠**Planner:** Used to break down complex user query into simple instructions based on the current desktop screenshot.
-- ✍️**Executor:** Used to generate executable instructions in combination with desktop screenshots.
+- 🧠**Planner:** Breaks down complex user instructions into multiple tasks for step-by-step execution.
+- 🤖**Dispatcher:** Combines desktop screen and executor functionality to break tasks into multiple subtasks, each being an atomic operation (the smallest unit of human computer control actions, such as: click xx, type xx).
+- ✍️**Executor:** Combines desktop screen to generate parameters for script execution based on atomic operations.
+- 🔍**Verifier:** Determines whether corresponding tasks have been completed based on desktop screen.
 
-Please note that when the selected Planner does not have multimodal functions, such as deepseek-v3, we use vision model to interpret desktop interpretation to help Planner better plan.
+### Supported Models
 
-### Usage mode
-
-- **Planner:** You can tell the LLM your needs like a conversation, so that the LLM can intelligently fulfill your needs.
-- **Workflow:** You need to define a series of simple execution instructions to the LLM to obtain more precise results.
-
-### Supported models
-
-| Planner - API           | Planner - Local         | Executor - API          | Executor - Local        |
-|-------------------------|-------------------------|-------------------------|-------------------------|
-| qwen-vl-max             | deepseek-v3             | qwen2.5-vl-7b           | qwen2.5-vl-7b           |
-| gpt-4o                  |                         |                         |                         |
-| deepseek-v3             |                         |                         |                         |
+| Planner - API       | Planner - Local    | Dispatcher & Verifier - API | Dispatcher & Verifier - Local | Executor - API      | Executor - Local    |
+|---------------------|--------------------|-----------------------------|-------------------------------|--------------------|--------------------|
+| qwen-vl-max         | deepseek-v3        | qwen-vl-max                 | qwen2.5-vl-72b                | qwen2.5-vl-7b      | qwen2.5-vl-7b      |
+| gpt-4o              |                    | gpt-4o                      |                               |                    |                    |
+| deepseek-v3         |                    |                             |                               |                    |                    |
 
 ### ⚠️ Notice
 
-- Please make sure that the name is correct and that the supplier supports the model when selecting a model.
-- Our current interface is implemented based on the openai library. Please make sure the provider or local deployment support provided.
-- The Executor configuration is necessary. When you use Workflow mode, you can not fill in the Planner configuration.
+- Please ensure the model name is correct and the vendor supports the model when making your selection.
+- Our current interface is implemented based on the openai library. Please ensure the provider or local deployment supports the provided models.
+- Due to the inherent instability in model outputs, if execution fails, try running again or modifying your query.

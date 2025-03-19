@@ -1,7 +1,6 @@
 from pydantic import BaseModel, Field
 from agent import Agent
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-import os
 import io
 import random
 import socket
@@ -17,7 +16,7 @@ from uvicorn.server import Server
 # Token verification passed: token验证通过
 # Process processing: 处理中
 # Successfully obtained data: 成功获取数据（在处理中时，由客户端发送，用于保持连接）
-# Processing complete: 处理完成
+# Process complete: 处理完成
 # Process interruption: 处理中断
 
 OPENAI_URL = "https://api.openai.com/v1"
@@ -25,35 +24,32 @@ DASHSCOPE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 SILICONFLOW_URL = "https://api.siliconflow.cn/v1"
 
 class RequestParams(BaseModel):
-    agent_type: str = Field(..., description="planner or workflow")
     planner_model: str = Field(None, description="Model used by the planner")
     planner_provider: str = Field(None, description="Provider for the planner: 'local', 'openai', 'dashscope', or 'siliconflow'")
     planner_api_key: str = Field(None, description="API key for the planner provider, required if the provider is not 'local'")
     planner_base_url: str = Field(None, description="Base URL for the planner provider, required if the provider is 'local'")
+    dispatcher_model: str = Field(None, description="Model used by the dispatcher")
+    dispatcher_provider: str = Field(None, description="Provider for the dispatcher: 'local', 'dashscope', or 'siliconflow'")
+    dispatcher_api_key: str = Field(None, description="API key for the dispatcher provider, required if the provider is not 'local'")
+    dispatcher_base_url: str = Field(None, description="Base URL for the dispatcher provider, required if the provider is 'local'")
     executor_model: str = Field(..., description="Model used by the executor")
     executor_provider: str = Field(..., description="Provider for the executor: 'local', 'dashscope', or 'siliconflow'")
     executor_api_key: str = Field(None, description="API key for the executor provider, required if the provider is not 'local'")
     executor_base_url: str = Field(None, description="Base URL for the executor provider, required if the provider is 'local'")
     user_query: str = Field(None, description="User's query, required if the agent type is 'planner'")
-    user_tasks: list = Field(None, description="List containing multiple simple instructions, required if the agent type is 'workflow'")
 
 def predefined_url(data: dict) -> dict:
-    # 自动配置第三方供应商的base_url
-    if data["agent_type"] == "planner":
-        if data["planner_provider"] == "openai":
-            data["planner_base_url"] = OPENAI_URL
-        elif data["planner_provider"] == "dashscope":
-            data["planner_base_url"] = DASHSCOPE_URL
-        elif data["planner_provider"] == "siliconflow":
-            data["planner_base_url"] = SILICONFLOW_URL
-
-    if data["executor_provider"] == "openai":
-        data["executor_base_url"] = OPENAI_URL
-    elif data["executor_provider"] == "dashscope":
-        data["executor_base_url"] = DASHSCOPE_URL
-    elif data["executor_provider"] == "siliconflow":
-        data["executor_base_url"] = SILICONFLOW_URL
-
+    provider_urls = {
+        "openai": OPENAI_URL,
+        "dashscope": DASHSCOPE_URL,
+        "siliconflow": SILICONFLOW_URL
+    }
+    if data["planner_provider"] in provider_urls:
+        data["planner_base_url"] = provider_urls[data["planner_provider"]]
+    if data["dispatcher_provider"] in provider_urls:
+        data["dispatcher_base_url"] = provider_urls[data["dispatcher_provider"]]
+    if data["executor_provider"] in provider_urls:
+        data["executor_base_url"] = provider_urls[data["executor_provider"]]
     return data
 
 def validate_and_update_data(data: dict) -> dict:
@@ -88,9 +84,6 @@ screenshot_server = FastAPI()
 async def websocket_chat(websocket: WebSocket):
     await websocket.accept()
 
-    if not os.path.exists('temp'):
-        os.makedirs('temp')
-
     try:
         # 验证token，避免异常接口调用
         received_token = await websocket.receive_json()
@@ -122,11 +115,11 @@ async def websocket_chat(websocket: WebSocket):
             await agent.process()
             
             # 返回处理结果
-            print("Processing complete")
-            await websocket.send_json({"message": "Processing complete"})
+            print("Process complete")
+            await websocket.send_json({"message": "Process complete"})
 
     except WebSocketDisconnect:
-        print("Client disconnected")
+        pass
 
     except Exception as e:
         await websocket.send_json({"message": "Process interruption", "error": f"{e}"})
@@ -163,7 +156,6 @@ async def websocket_screenshots(websocket: WebSocket):
                 # 等待一秒后发送下一张截图
                 await asyncio.sleep(0.2)
             except WebSocketDisconnect:
-                print("Screenshot client disconnected")
                 connection_active = False
                 break
             except Exception as inner_e:
@@ -175,13 +167,12 @@ async def websocket_screenshots(websocket: WebSocket):
                 await asyncio.sleep(0.2)  # 即使发生错误也等待，避免错误循环过快
                 
     except WebSocketDisconnect:
-        print("Screenshot client disconnected")
+        pass
     except Exception as e:
         print(f"Screenshot connection error: {e}")
     finally:
         # 确保在任何情况下都标记连接已关闭
         connection_active = False
-        print("Screenshot connection terminated")
 
 def run_screenshot_server():
     """Run the screenshots WebSocket server in a separate process."""

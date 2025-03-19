@@ -1,17 +1,18 @@
+import os
 import re
 import json
-import base64
-from openai import OpenAI
-from PIL import Image
+import time
+import pyperclip
+import pyautogui
 from IPython.display import display
-from transformers.models.qwen2_vl.image_processing_qwen2_vl_fast import smart_resize
-from typing import Union, Tuple, List
+from typing import Union
 from qwen_agent.tools.base import BaseTool, register_tool
 from qwen_agent.llm.fncall_prompts.nous_fncall_prompt import (
     NousFnCallPrompt,
     Message,
     ContentItem,
 )
+
 
 @register_tool("computer_use")
 class ComputerUse(BaseTool):
@@ -26,7 +27,6 @@ Use a mouse and keyboard to interact with a computer, and take screenshots.
 * Whenever you intend to move the cursor to click on an element like an icon, you should consult a screenshot to determine the coordinates of the element before moving the cursor.
 * If you tried clicking on a program or link but it failed to load, even after waiting, try adjusting your cursor position so that the tip of the cursor visually falls on the element that you want to click.
 * Make sure to click any buttons, links, icons, etc with the cursor tip in the center of the element. Don't click boxes on their edges unless asked.
-* If you need to type a string of text, You should first left_click where you need to type and then type.
 """.strip()
 
     parameters = {
@@ -38,26 +38,18 @@ The action to perform. The available actions are:
 * `type`: Type a string of text on the keyboard.
 * `mouse_move`: Move the cursor to a specified (x, y) pixel coordinate on the screen.
 * `left_click`: Click the left mouse button.
-* `left_click_drag`: Click and drag the cursor to a specified (x, y) pixel coordinate on the screen.
 * `right_click`: Click the right mouse button.
 * `middle_click`: Click the middle mouse button.
 * `double_click`: Double-click the left mouse button.
-* `scroll`: Performs a scroll of the mouse scroll wheel.
-* `wait`: Wait specified seconds for the change to happen.
-* `terminate`: Terminate the current task and report its completion status.
 """.strip(),
                 "enum": [
                     "key",
                     "type",
                     "mouse_move",
                     "left_click",
-                    "left_click_drag",
                     "right_click",
                     "middle_click",
                     "double_click",
-                    "scroll",
-                    "wait",
-                    "terminate",
                 ],
                 "type": "string",
             },
@@ -73,19 +65,6 @@ The action to perform. The available actions are:
                 "description": "(x, y): The x (pixels from the left edge) and y (pixels from the top edge) coordinates to move the mouse to. Required only by `action=mouse_move` and `action=click`.",
                 "type": "array",
             },
-            "pixels": {
-                "description": "The amount of scrolling to perform. Positive values scroll up, negative values scroll down. Required only by `action=scroll`.",
-                "type": "number",
-            },
-            "time": {
-                "description": "The seconds to wait. Required only by `action=wait`.",
-                "type": "number",
-            },
-            "status": {
-                "description": "The status of the task. Required only by `action=terminate`.",
-                "type": "string",
-                "enum": ["success", "failure"],
-            },
         },
         "required": ["action"],
         "type": "object",
@@ -98,64 +77,26 @@ The action to perform. The available actions are:
         super().__init__(cfg)
 
     def call(self, params: Union[str, dict], **kwargs):
-        params = self._verify_json_format_args(params)
-        action = params["action"]
-        if action in ["left_click", "right_click", "middle_click", "double_click"]:
-            return self._mouse_click(action)
-        elif action == "key":
-            return self._key(params["keys"])
-        elif action == "type":
-            return self._type(params["text"])
-        elif action == "mouse_move":
-            return self._mouse_move(params["coordinate"])
-        elif action == "left_click_drag":
-            return self._left_click_drag(params["coordinate"])
-        elif action == "scroll":
-            return self._scroll(params["pixels"])
-        elif action == "wait":
-            return self._wait(params["time"])
-        elif action == "terminate":
-            return self._terminate(params["status"])
-        else:
-            raise ValueError(f"Invalid action: {action}")
-
-    def _mouse_click(self, button: str):
-        raise NotImplementedError()
-
-    def _key(self, keys: List[str]):
-        raise NotImplementedError()
-
-    def _type(self, text: str):
-        raise NotImplementedError()
-
-    def _mouse_move(self, coordinate: Tuple[int, int]):
-        raise NotImplementedError()
-
-    def _left_click_drag(self, coordinate: Tuple[int, int]):
-        raise NotImplementedError()
-
-    def _scroll(self, pixels: int):
-        raise NotImplementedError()
-
-    def _wait(self, time: int):
-        raise NotImplementedError()
-
-    def _terminate(self, status: str):
-        raise NotImplementedError()
+        pass
 
 
-class Qwen2_5_VL_executor:
-    def __init__(self, executor_api_key, executor_base_url, executor_model, controlledOS):
-        self.executor_client = OpenAI(
-            api_key=executor_api_key,
-            base_url=executor_base_url,
-        )
+class interact_executor:
+    """
+    Parameters:
+    - executor_client
+    - executor_model (str): Model to be used by the executor client
+    - controlledOS (str): The operating system being controlled
+    - base64_screenshot (str): The base64 encoded screenshot
+    - subtask (str): The subtask to be executed
+
+    Returns:
+    - completion (str): The full output of LLM
+    - actions (arr): The action of the executed subtask
+    """
+    def __init__(self, executor_client, executor_model):
+        self.executor_client = executor_client
         self.executor_model = executor_model
-        self.controlledOS = controlledOS
-
-    def encode_image(self, image_path):
-        with open(image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode("utf-8")
+        self.controlledOS = os.environ["CONTROLLED_OS"]
 
     def _parse_tool_call(self, text):
         try:
@@ -166,8 +107,40 @@ class Qwen2_5_VL_executor:
         except:
             actions = []
         return actions
+    
+    def gui_action(self, arguments):
+        if arguments["action"] == "key":
+            if len(arguments["keys"]) == 1:
+                pyautogui.typewrite(arguments["keys"])
+            else:
+                for key in arguments["keys"][:-1]:
+                    pyautogui.keyDown(key)
+                pyautogui.press(arguments["keys"][-1])
+                for key in reversed(arguments["keys"][:-1]):
+                    pyautogui.keyUp(key)
+        elif arguments["action"] == "type":
+            pyperclip.copy(arguments["text"])
+            time.sleep(0.1)
+            if self.controlledOS == "Darwin":
+                pyautogui.keyDown('command')
+                pyautogui.press('v')
+                pyautogui.keyUp('command')
+            else:
+                pyautogui.keyDown('ctrl')
+                pyautogui.press('v')
+                pyautogui.keyUp('ctrl')
+        elif arguments["action"] == "mouse_move":
+            pyautogui.moveTo(arguments["coordinate"][0], arguments["coordinate"][1])
+        elif arguments["action"] == "left_click":
+            pyautogui.doubleClick(arguments["coordinate"][0], arguments["coordinate"][1])
+        elif arguments["action"] == "right_click":
+            pyautogui.rightClick(arguments["coordinate"][0], arguments["coordinate"][1])
+        elif arguments["action"] == "middle_click":
+            pyautogui.middleClick(arguments["coordinate"][0], arguments["coordinate"][1])
+        elif arguments["action"] == "double_click":
+            pyautogui.doubleClick(arguments["coordinate"][0], arguments["coordinate"][1])
 
-    def __call__(self, screenshot_path, task, min_pixels=3136, max_pixels=12845056):
+    def __call__(self, base64_screenshot, subtask, min_pixels=3136, max_pixels=12845056):
         """
         Perform GUI grounding using Qwen model to interpret user query on a screenshot.
         
@@ -183,18 +156,10 @@ class Qwen2_5_VL_executor:
         """
 
         # Open and process image
-        input_image = Image.open(screenshot_path)
-        base64_image = self.encode_image(screenshot_path)
-
-        resized_height, resized_width = smart_resize(
-            input_image.height,
-            input_image.width,
-            min_pixels=min_pixels,
-            max_pixels=max_pixels,
-        )
+        display_width_px, display_height_px = pyautogui.size()
         # Initialize computer use function
         computer_use = ComputerUse(
-            cfg={"display_width_px": resized_width, "display_height_px": resized_height, "controlledOS": self.controlledOS}
+            cfg={"display_width_px": display_width_px, "display_height_px": display_height_px, "controlledOS": self.controlledOS}
         )
         
         # Build messages
@@ -220,13 +185,9 @@ class Qwen2_5_VL_executor:
                         "type": "image_url",
                         "min_pixels": min_pixels,
                         "max_pixels": max_pixels,
-                        # Pass in BASE64 image data. Note that the image format (i.e., image/{format}) must match the Content Type in the list of supported images. "f" is the method for string formatting.
-                        # PNG image:  f"data:image/png;base64,{base64_image}"
-                        # JPEG image: f"data:image/jpeg;base64,{base64_image}"
-                        # WEBP image: f"data:image/webp;base64,{base64_image}"
-                        "image_url": {"url": f"data:image/png;base64,{base64_image}"},
+                        "image_url": {"url": f"data:image/png;base64,{base64_screenshot}"},
                     },
-                    {"type": "text", "text": task},
+                    {"type": "text", "text": subtask},
                 ],
             }
         ]
@@ -234,11 +195,10 @@ class Qwen2_5_VL_executor:
         completion = self.executor_client.chat.completions.create(
             model = self.executor_model,
             messages = messages,
-            tool_choice = "required",   # qwen2.5-vl暂不支持此参数，不能稳定输出tool_call
-            parallel_tool_calls = True
         )
-        output_text = completion.choices[0].message.content
-        # 解析模型输出
-        actions = self._parse_tool_call(output_text)
+        actions = self._parse_tool_call(completion.choices[0].message.content)
         
-        return output_text, actions
+        for action in actions:
+            self.gui_action(action['arguments'])
+        
+        return completion, actions

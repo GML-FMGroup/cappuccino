@@ -6,22 +6,24 @@ async def send_request():
     url = "ws://0.0.0.0:8000/chat"  # WebSocket 服务地址
     async with websockets.connect(url) as websocket:
         infro = {
-            "token": "214928"
+            "token": "878141"
         }
         await websocket.send(json.dumps(infro))
 
         data = {
-            "agent_type": "workflow",
-            "planner_model": "",
-            "planner_provider": "",
-            "planner_api_key": "",
+            "planner_model": "deepseek-v3",
+            "planner_provider": "dashscope",
+            "planner_api_key": "sk-xxx",
             "planner_base_url": "",
+            "dispatcher_model": "qwen-max-2025-01-25",
+            "dispatcher_provider": "dashscope",
+            "dispatcher_api_key": "sk-xxx",
+            "dispatcher_base_url": "",
             "executor_model": "qwen2.5-vl-7b-instruct",
             "executor_provider": "dashscope",
-            "executor_api_key": "",
+            "executor_api_key": "sk-xxx",
             "executor_base_url": "",
-            "user_query": "",
-            "user_tasks": ["打开哔哩哔哩","搜索python"],
+            "user_query": "Help me find some information from GitHub trending and write it to Word, including the project name and description",
         }
 
         await websocket.send(json.dumps(data))
