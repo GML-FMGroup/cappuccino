@@ -16,6 +16,7 @@ You can use the API directly to get started quickly or deploy LLM on local serve
 
 - **Local Deployment:** Each part of our architecture provides open-source model options for local deployment, with information transmission through local LAN to protect your privacy.
 - **Easy to Use:** We provide a React-based GUI Client to control the Agent, which is beginner-friendly.
+- **Scalability:** The current architecture supports the addition of more actuators to expand the Agent's capabilities.
 
 ## 🤔 Future Work
 
