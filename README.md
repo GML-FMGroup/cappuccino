@@ -26,6 +26,10 @@ We hope more people will pay attention to our project or join us. We will furthe
 
 Your star🌟 will be the biggest motivation for us to update!
 
+<img src="./assets/cappuccino_group.png" alt="cappuccino_group" width="20%">
+
+>Welcome to join our community exchange group to participate in the construction or exchange of projects.
+
 ## 📰 Update
 
 - **[2025/03/19]** 🧠 The system architecture was upgraded to enable more complex tasks.

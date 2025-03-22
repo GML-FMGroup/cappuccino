@@ -26,6 +26,10 @@
 
 你的 star🌟 是我们更新的最大动力！
 
+<img src="./assets/cappuccino_group.png" alt="cappuccino_group" width="20%">
+
+>欢迎大家进我们的社区交流群，参与项目的共建或交流。
+
 ## 📰 更新
 
 - **[2025/03/19]** 🧠 升级了系统架构以支持更复杂的任务。
