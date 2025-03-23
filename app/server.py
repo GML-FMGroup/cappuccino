@@ -22,6 +22,7 @@ from uvicorn.server import Server
 OPENAI_URL = "https://api.openai.com/v1"
 DASHSCOPE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 SILICONFLOW_URL = "https://api.siliconflow.cn/v1"
+MODELSCOPE_URL = "https://api-inference.modelscope.cn/v1/"
 
 class RequestParams(BaseModel):
     planner_model: str = Field(None, description="Model used by the planner")
@@ -42,7 +43,8 @@ def predefined_url(data: dict) -> dict:
     provider_urls = {
         "openai": OPENAI_URL,
         "dashscope": DASHSCOPE_URL,
-        "siliconflow": SILICONFLOW_URL
+        "siliconflow": SILICONFLOW_URL,
+        "modelscope": MODELSCOPE_URL,
     }
     if data["planner_provider"] in provider_urls:
         data["planner_base_url"] = provider_urls[data["planner_provider"]]
