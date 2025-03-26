@@ -8,30 +8,20 @@
 
 ## 💡 Overview
 
-**Cappuccino** is a GUI Agent that can control your computer to solve tedious tasks with a simple instruction. AI will generate detailed task plans and execute them. Unlike other existing solutions that parse image elements or use browser interfaces, **cappuccino** is a purely visual solution based on desktop screens, as we believe the parsing process easily loses spatial association information.
+**Cappuccino** is a GUI Agent that can control your computer to solve tedious tasks with a simple instruction. AI will generate detailed task plans and execute them. Unlike other existing solutions that parse image elements or use browser interfaces, **cappuccino** is a purely visual solution based on desktop screens, therefore completely relying on the effectiveness of models and prompts, without depending on third-party libraries like browser-use, as we believe the parsing process easily loses spatial association information. This method also allows developers to use models fine-tuned for specific tasks to achieve better software control capabilities.
 
-You can use the API directly to get started quickly or deploy LLM on local servers for greater security. Send control instructions through Python scripts or visual interface: [cappuccino-client](https://github.com/GML-FMGroup/cappuccino-client) 🖥️.
+You can use the API directly to get started quickly or **deploy LLM on local servers** for greater security. Send control instructions through Python scripts or visual interface: [cappuccino-client](https://github.com/GML-FMGroup/cappuccino-client) 🖥️.
 
 ## ✨ Features
 
 - **Local Deployment:** Each part of our architecture provides open-source model options for local deployment, with information transmission through local LAN to protect your privacy.
 - **Easy to Use:** We provide a React-based GUI Client to control the Agent, which is beginner-friendly.
 - **Scalability:** The current architecture supports the addition of more actuators to expand the Agent's capabilities.
-
-## 🤔 Future Work
-
-We will support more models, optimize the agent's performance, and work on developing our own small-parameter LLM to reduce deployment costs and improve running speed.
-
-We hope more people will pay attention to our project or join us. We will further enrich our system, create a Manus-like product suitable for local deployment, and adapt to more software operations.
-
-Your star🌟 will be the biggest motivation for us to update!
-
-<img src="./assets/cappuccino_group.png" alt="cappuccino_group" width="20%">
-
->Welcome to join our community exchange group to participate in the construction or exchange of projects.
+- **Software Adaptation:** Developers can fine-tune models for specific software needs, enabling the Agent to achieve better software control capabilities.
 
 ## 📰 Update
 
+- **[2025/03/26]** ⌨️ Added code executor for better file generation.
 - **[2025/03/19]** 🧠 The system architecture was upgraded to enable more complex tasks.
 - **[2025/03/09]** 🖥️ We introduced cappuccino-client for easier command initiation.
 - **[2025/03/04]** 💥 Deepseek-v3 is now supported as a planner.
@@ -50,8 +40,6 @@ At present, the project supports the deployment of Windows and Mac. Due to the d
 ### 1. Model Deployment
 
 This project supports using vendor APIs or locally deploying LLMs. If you need local deployment, please use an OpenAI-compatible API service. We recommend using vLLM for deployment, referring to the [official tutorial](https://qwen.readthedocs.io/en/latest/deployment/vllm.html#openai-compatible-api-service).
-
-For model selection, we recommend using deepseek-v3 as the planner, qwen-vl-max as the dispatcher & validator, and qwen2.5-vl-7b as the executor.
 
 ### 2. Server Configuration and Startup
 
@@ -112,20 +100,33 @@ We divide **Cappuccino** into three parts: **Model, Server, Client**.
 For the design of GUI Agent, we mainly divide it into four parts: **🧠Planner, 🤖Dispatcher, ✍️Executor, 🔍Verifier**.
 
 - 🧠**Planner:** Breaks down complex user instructions into multiple tasks for step-by-step execution.
-- 🤖**Dispatcher:** Combined with the functions of the desktop screen and the actuator, the task is broken down into multiple subtasks and assigned to the corresponding actuator, each subtask is an atomic operation (the minimum action unit for human control of the computer, such as: click xx, enter xx).
+- 🤖**Dispatcher:** Combined with the desktop screen and executor functions, the task is broken down into multiple subtasks and assigned to the corresponding executor. Each subtask is an atomic operation (the minimum action unit for human control of the computer, such as: click xx, enter xx).
 - ✍️**Executor:** Combines desktop screen to generate parameters for script execution based on atomic operations.
 - 🔍**Verifier:** Determines whether corresponding tasks have been completed based on desktop screen.
 
 ### Supported Models
 
-| Planner - API       | Planner - Local    | Dispatcher & Verifier - API | Dispatcher & Verifier - Local | Executor - API      | Executor - Local    |
-|---------------------|--------------------|-----------------------------|-------------------------------|--------------------|--------------------|
-| qwen-vl-max         | deepseek-v3        | qwen-vl-max                 | qwen2.5-vl-72b                | qwen2.5-vl-7b      | qwen2.5-vl-7b      |
-| gpt-4o              |                    | gpt-4o                      |                               |                    |                    |
-| deepseek-v3         |                    |                             |                               |                    |                    |
+| Planner             | Dispatcher & Verifier  | Executor           |
+|---------------------|------------------------|--------------------|
+| qwen-vl-max         | qwen-vl-max            | qwen2.5-vl-7b      |
+| gpt-4o              | gpt-4o                 |                    |
+| deepseek-v3         | qwen2.5-vl-72b         |                    |
+
+> Supported models refer to models that can better complete the agent function after testing, and can actually replace models with the same capabilities freely. For example, the planner can use models with smaller parameters.
 
 ### ⚠️ Notice
 
 - Please ensure the model name is correct and the vendor supports the model when making your selection.
 - Our current interface is implemented based on the openai library. Please ensure the provider or local deployment supports the provided models.
 - Due to the inherent instability in model outputs, if execution fails, try running again or modifying your query.
+
+## ✅ Future Plans
+
+- [ ] Evaluate cappuccino's performance using WindowsArena
+- [ ] Fine-tune a model based on qwen2.5-vl-7b that can function as multiple modules, improving local deployment efficiency
+
+## 🤝 Join Us
+
+We hope more people will pay attention to our project or join us. We will further enrich our system, create a Manus-like product suitable for local deployment, and adapt to more software operations.
+
+<img src="./assets/cappuccino_group.png" alt="cappuccino_group" width="20%" align="center">

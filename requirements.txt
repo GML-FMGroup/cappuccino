@@ -11,3 +11,8 @@ websockets==15.0
 uvicorn==0.34.0
 torch
 python-dateutil
+python-docx
+python-pptx
+openpyxl
+reportlab
+pandas
