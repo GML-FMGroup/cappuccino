@@ -29,7 +29,7 @@ You can use the API directly to get started quickly or **deploy LLM on local ser
 
 ## 🎥 Demo
 
-https://github.com/user-attachments/assets/18b6013a-6d45-44d3-bd09-b0b08e0cd2c8
+https://github.com/user-attachments/assets/c3f7d0cc-a3c2-4ea3-956e-738bb1edda10
 
 ## 👨‍💻 Quickstart
 
