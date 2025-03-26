@@ -1,4 +1,5 @@
 import os
+import platform
 import re
 import json
 import time
@@ -85,7 +86,6 @@ class interact_executor:
     Parameters:
     - executor_client
     - executor_model (str): Model to be used by the executor client
-    - controlledOS (str): The operating system being controlled
     - base64_screenshot (str): The base64 encoded screenshot
     - subtask (str): The subtask to be executed
 
@@ -96,7 +96,7 @@ class interact_executor:
     def __init__(self, executor_client, executor_model):
         self.executor_client = executor_client
         self.executor_model = executor_model
-        self.controlledOS = os.environ["CONTROLLED_OS"]
+        self.controlledOS = platform.system()
 
     def _parse_tool_call(self, text):
         try:
@@ -108,7 +108,7 @@ class interact_executor:
             actions = []
         return actions
     
-    def gui_action(self, arguments):
+    def _gui_action(self, arguments):
         if arguments["action"] == "key":
             if len(arguments["keys"]) == 1:
                 pyautogui.typewrite(arguments["keys"])
@@ -199,6 +199,6 @@ class interact_executor:
         actions = self._parse_tool_call(completion.choices[0].message.content)
         
         for action in actions:
-            self.gui_action(action['arguments'])
+            self._gui_action(action['arguments'])
         
         return completion, actions

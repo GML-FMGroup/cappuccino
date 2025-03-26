@@ -34,7 +34,6 @@ class Agent:
         self.controlledOS = platform.system()
         self.run_folder = os.path.join('temp', time.strftime("%Y%m%d-%H%M%S"))
         os.makedirs(self.run_folder, exist_ok=True)
-        os.environ["CONTROLLED_OS"] = self.controlledOS
         os.environ["RUN_FOLDER"] = self.run_folder
 
         self.logger = logging.getLogger(f"AgentLogger-{self.controlledOS}")
@@ -79,33 +78,32 @@ class Agent:
     async def process(self):
         try:
             tasks = await self.pipeline_planner(self.data["user_query"])
-            for task_dict in tasks:
+            for task in tasks:
                 is_completed = False
                 completed_retry_count = 0
                 while not is_completed and completed_retry_count < 3:
-                    subtasks = await self.pipeline_dispatcher(task_dict)
+                    subtasks = await self.pipeline_dispatcher(task)
+                    # Handle special executors that might need retries
+                    retry_configs = {
+                        "wait": {"max_retries": 2, "message": "Handling page load delay"},
+                        "scroll_executor": {"max_retries": 8, "message": "Scrolling to find target content"}
+                    }
+                    if subtasks[0]["executor"] in retry_configs:
+                        config = retry_configs[subtasks[0]["executor"]]
+                        self.logger.debug(f"{config['message']}\n")
+                        for retry in range(config["max_retries"]):
+                            await self.pipeline_executor(subtasks[0])
+                            subtasks = await self.pipeline_dispatcher(task)
+                            if subtasks[0]["executor"] not in retry_configs:
+                                 break
+
                     for subtask_dict in subtasks:
-                        wait_retry_count = 0
-                        scroll_retry_count = 0
-
-                        # Prevent page loading slowly affects execution
-                        while wait_retry_count < 2 and subtask_dict["executor"] == "wait" and subtask_dict == subtasks[0]:
-                            await self.pipeline_executor(subtask_dict)
-                            subtasks = await self.pipeline_dispatcher(task_dict)
-                            wait_retry_count += 1
-
-                        # Scroll to find the target content
-                        while scroll_retry_count < 5 and subtask_dict["executor"] == "scroll_executor" and subtask_dict == subtasks[0]:
-                            await self.pipeline_executor(subtask_dict)
-                            subtasks = await self.pipeline_dispatcher(task_dict)
-                            scroll_retry_count += 1
-
                         await self.pipeline_executor(subtask_dict)
-
-                        time.sleep(0.5)
+                        
+                    time.sleep(0.5)
 
                     # Check whether the current task has been completed
-                    is_completed = await self.pipeline_verifier(task_dict)
+                    is_completed = await self.pipeline_verifier(task)
                     completed_retry_count += 1
 
         except Exception as e:
@@ -114,7 +112,7 @@ class Agent:
 
 
     async def pipeline_planner(self, query):
-        # tasks example: [{"task": "", prev_required: True/False}]
+        # tasks example: ["task", "task"]
         completion, thinking, tasks = self.planner(query)
         self.logger.info(f"planner_model: {self.data['planner_model']}\nquery: {query}\ncompletion: {completion}\nthinking: {thinking}\ntasks:{tasks}\n\n")
         intermediate_output = {

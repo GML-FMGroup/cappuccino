@@ -12,6 +12,10 @@
         "description": "Scroll the mouse to query the target."
     },
     {
+        "name": "code_executor",
+        "description": "Generate and execute code to generate files, such as word and excel."
+    },
+    {
         "name": "wait",
         "description": "Wait for the page to load."
     }

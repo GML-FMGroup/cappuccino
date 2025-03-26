@@ -1,3 +1,4 @@
+import platform
 import re
 import json
 import pyautogui
@@ -60,7 +61,6 @@ class scroll_executor:
     Parameters:
     - executor_client
     - executor_model (str): Model to be used by the executor client
-    - controlledOS (str): The operating system being controlled
     - base64_screenshot (str): The base64 encoded screenshot
     - subtask (str): The subtask to be executed
 
@@ -71,7 +71,7 @@ class scroll_executor:
     def __init__(self, executor_client, executor_model):
         self.executor_client = executor_client
         self.executor_model = executor_model
-        self.controlledOS = os.environ["CONTROLLED_OS"]
+        self.controlledOS = platform.system()
 
     def _parse_tool_call(self, text):
         try:
@@ -87,7 +87,12 @@ class scroll_executor:
         if arguments["action"] == "mouse_move":
             pyautogui.moveTo(arguments["coordinate"][0], arguments["coordinate"][1])
         elif arguments["action"] == "scroll":
-            pyautogui.scroll(-10)
+            if self.controlledOS == "Windows":
+                pyautogui.scroll(-500)
+            elif self.controlledOS == "Darwin":
+                pyautogui.scroll(-10)
+            elif self.controlledOS == "Linux":
+                pyautogui.scroll(-10)
 
     def __call__(self, base64_screenshot, subtask, min_pixels=3136, max_pixels=12845056):
         """

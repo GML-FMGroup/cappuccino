@@ -1,5 +1,6 @@
 import json
 import os
+import platform
 from openai import OpenAI
 from utils import get_base64_screenshot
 
@@ -24,7 +25,7 @@ class verifier:
             base_url=verifier_base_url,
         )
         self.verifier_model = verifier_model
-        self.controlledOS = os.environ["CONTROLLED_OS"]
+        self.controlledOS = platform.system()
         self.run_folder = os.environ["RUN_FOLDER"]
 
 
@@ -32,8 +33,8 @@ class verifier:
         return f"""
 You are a verifier.
 You need to help me use {self.controlledOS} system according to the following information.
-You now need to help me verify whether the task has been completed based on the screenshot of the current desktop, and give your thinking process and results according to the specified json format.
-You only need to determine whether the web page or software has been opened or whether the target content has been found. If you extract text and cannot judge based on the picture, is completed is set to true.
+You now need to help me verify whether the task has been completed based on the screenshot of the current desktop or data obtained, and give your thinking process and results according to the specified json format.
+If the task is the open web page type, check whether the desktop screenshot is successfully opened; if the task is the obtaining data type, check whether the obtained data contains the data; if the task is a generated file type, just check whether the file is opened.
 
 ## Output format:
 ```json
@@ -53,6 +54,7 @@ You only need to determine whether the web page or software has been opened or w
     
     def _get_user_prompt(self, task):
         return f"""
+## Instruction:
 Please determine whether the current task has been completed.
 ## task:
 {task}
@@ -63,7 +65,7 @@ Please determine whether the current task has been completed.
         json_dict = json.loads(json_str)
         return json_dict["thinking"], json_dict["is_completed"]
 
-    def __call__(self, task_dict, min_pixels=3136, max_pixels=12845056):
+    def __call__(self, task, min_pixels=3136, max_pixels=12845056):
         base64_screenshot = get_base64_screenshot(self.run_folder)
         messages=[
             {
@@ -73,7 +75,7 @@ Please determine whether the current task has been completed.
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": self._get_user_prompt(task_dict["task"])},
+                    {"type": "text", "text": self._get_user_prompt(task)},
                     {
                         "type": "image_url",
                         "image_url": {"url": f"data:image/png;base64,{base64_screenshot}"},
