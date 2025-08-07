@@ -129,4 +129,3 @@ For the design of GUI Agent, we mainly divide it into four parts: **🧠Planner,
 
 We hope more people will pay attention to our project or join us. We will further enrich our system, create a Manus-like product suitable for local deployment, and adapt to more software operations.
 
-<img src="./assets/cappuccino_group.png" alt="cappuccino_group" width="20%" align="center">
