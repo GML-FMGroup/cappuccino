@@ -134,4 +134,3 @@ python request_demo.py
 
 希望有更多的人关注我们的项目或加入我们，我们也会进一步丰富我们的系统，打造可用于本地部署的类 Manus 产品，适配更多的软件操作。
 
-<img src="./assets/cappuccino_group.png" alt="cappuccino_group" width="20%" align="center">
