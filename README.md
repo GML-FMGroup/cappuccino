@@ -1,131 +1,138 @@
 <div align="center">
-<h1><span style="font-size: 60px;">☕️</span> cappuccino</h1>
-<p><a href="./README_CN.md">中文</a> | English</p>
-<p>A local automated intelligent agent that frees your hands 🤖</p>
-<p>Entrust your tasks to me, and enjoy a rich cup of cappuccino ☕️</p>
-<p>By the time you return, your tasks will be silently completed 🍃</p>
+<h1><span style="font-size: 60px;">☕️</span> 卡布奇诺</h1>
+<p>一个解放你双手的本地自动化智能体 🤖</p>
+<p>放心将任务交予我，去静享一杯醇香的卡布奇诺 ☕️</p>
+<p>待你悠然归来，任务早已悄然完成 🍃</p>
 </div>
 
-## 💡 Overview
+## 💡 概述
 
-**Cappuccino** is a GUI Agent that can control your computer to solve tedious tasks with a simple instruction. AI will generate detailed task plans and execute them. Unlike other existing solutions that parse image elements or use browser interfaces, **cappuccino** is a purely visual solution based on desktop screens, therefore completely relying on the effectiveness of models and prompts, without depending on third-party libraries like browser-use, as we believe the parsing process easily loses spatial association information. This method also allows developers to use models fine-tuned for specific tasks to achieve better software control capabilities.
+**卡布奇诺**是一个能操控电脑帮你解决繁琐任务的 GUI Agent，只需一条简单的指令，AI 就能生成详细的任务规划并执行。
 
-You can use the API directly to get started quickly or **deploy LLM on local servers** for greater security. Send control instructions through Python scripts or visual interface: [cappuccino-client](https://github.com/GML-FMGroup/cappuccino-client) 🖥️.
+与解析图片元素或使用浏览器接口的其他现有方案不同，**卡布奇诺**是基于桌面屏幕的纯视觉方案，因此完全依赖于模型和 prompt 的效果，不依赖于 browser-use 等第三方库，因为我们觉得解析过程容易丢失空间关联信息，且该方法能让开发者直接使用根据自己特定任务微调的模型，以获得更好的软件操控能力。
 
-## ✨ Features
+你可以直接使用 API 调用模型快速上手，也可以在**本地服务器上部署开源模型**以获得更高的安全性。通过 python 脚本或可视化界面 🖥️ [cappuccino-client](https://github.com/GML-FMGroup/cappuccino-client) 发送操控指令。
 
-- **Local Deployment:** Each part of our architecture provides open-source model options for local deployment, with information transmission through local LAN to protect your privacy.
-- **Easy to Use:** We provide a React-based GUI Client to control the Agent, which is beginner-friendly.
-- **Scalability:** The current architecture supports the addition of more actuators to expand the Agent's capabilities.
-- **Software Adaptation:** Developers can fine-tune models for specific software needs, enabling the Agent to achieve better software control capabilities.
+## ✨ 特点
 
-## 📰 Update
+- **本地部署：** 本方案架构的各个部分均提供**开源模型**的选择方便进行本地部署，信息传输均通过本地局域网进行，保护您的隐私。
+- **快速上手：** 我们提供了基于 React 构建的 GUI 客户端用于操控 Agent，小白友好。
+- **可拓展性：** 当前架构支持自定义添加更多的执行器以拓展 Agent 的能力。
+- **软件适配：** 开发者可根据自身所需软件微调模型，让 Agent 获得更好的软件操控能力。
 
-- **[2025/03/26]** ⌨️ Added code executor for better file generation.
-- **[2025/03/19]** 🧠 The system architecture was upgraded to enable more complex tasks.
-- **[2025/03/09]** 🖥️ We introduced cappuccino-client for easier command initiation.
-- **[2025/03/04]** 💥 Deepseek-v3 is now supported as a planner.
-- **[2025/02/27]** 🏆 Now you can experience cappuccino with qwen and gpt-4o.
+## 📰 更新
 
-## 🎥 Demo
+- **[2025/03/26]** ⌨️ 添加了代码执行器，能更好的生成文件。
+- **[2025/03/19]** 🧠 升级了系统架构以支持更复杂的任务。
+- **[2025/03/09]** 🖥️ 我们开发了 GUI 客户端 cappuccino-client，以便更轻松地发送命令。
+- **[2025/03/04]** 💥 已支持 Deepseek-v3 作为规划器。
+- **[2025/02/27]** 🏆 现在你可以使用 qwen 和 gpt-4o 体验 cappuccino。
+
+> 你的 star🌟 是我们更新的最大动力！
+
+## 🎥 演示
 
 https://github.com/user-attachments/assets/c3f7d0cc-a3c2-4ea3-956e-738bb1edda10
 
-## 👨‍💻 Quickstart
+## 👨‍💻 快速开始
 
-### 0. Hardware preparation
+### 0. 硬件准备
 
-At present, the project supports the deployment of Windows and Mac. Due to the differences in the shortcut keys and operation methods of the system, the experience of different systems may be different. We will carry out more system adaptation in the future.
+目前该项目支持部署在 Windows 和 Mac，由于系统的快捷键和操作方式等差异，不同系统的体验可能会有区别，我们后续还会进行更多的系统适配。
 
-### 1. Model Deployment
+### 1. 模型部署
 
-This project supports using vendor APIs or locally deploying LLMs. If you need local deployment, please use an OpenAI-compatible API service. We recommend using vLLM for deployment, referring to the [official tutorial](https://qwen.readthedocs.io/en/latest/deployment/vllm.html#openai-compatible-api-service).
+本项目支持使用供应商的 API 或本地部署 LLM。若您需要本地部署，请使用 OpenAI 兼容的 API 服务，我们推荐使用 vLLM 进行部署，具体可以参考 [官网教程](https://qwen.readthedocs.io/zh-cn/latest/deployment/vllm.html#openai-compatible-api-service) 。
 
-### 2. Server Configuration and Startup
+### 2. 服务端配置与启动
 
-The following operations are performed on the computer you want to control.
+以下操作在需要被控制的计算机上执行。
 
-#### 2.1 Clone the Repository
+#### 2.1 克隆仓库
 
 ```bash
 git clone https://github.com/GML-FMGroup/cappuccino.git
 cd cappuccino
 ```
-#### 2.2 Install Dependencies
+
+#### 2.2 安装依赖
+
+首先安装 uv（如果已安装可跳过）：
 
 ```bash
-pip install -r requirements.txt
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# 或使用 pip
+pip install uv
 ```
 
-#### 2.3 Start the Server
+然后安装项目依赖：
 
 ```bash
-cd app
-python server.py
+uv sync
 ```
-You will see your **local IP** and randomly generated **token** in the console. In this example, IP is 192.168.0.100
+
+#### 2.3 启动服务
+
+```bash
+uv run python server/server.py
+```
+你将在控制台中看到你的 **本地 IP** 和随机生成的 **token**。下面的例子中 IP 为 192.168.0.100
 ```bash
 Generated token: 854616
-Chat WebSocket: ws://192.168.0.100:8000/chat
-Screenshots WebSocket: ws://192.168.0.100:8001/screenshots
+Chat SSE: http://192.168.0.100:8000/chat
+Screenshot: http://192.168.0.100:8000/screenshot?token=YOUR_TOKEN
 ```
 
-### 3. Send Instructions
+### 3. 发送指令
 
-Run on another device to initiate network requests. Of course, you can also run it on the controlled terminal, but our design philosophy is to use another device to send instructions to avoid affecting the computer's operations.
+在另一台设备上运行以发起网络请求。当然，你也可以在被控制的终端上运行，但我们的设计理念是使用另一台设备发送指令，以避免影响计算机的操作执行。
 
-#### Method 1: Python Scripts
+#### 方法 1：Python 脚本
 
-1. Modify the IP and token in `request_demo.py`. For example, IP is 192.168.0.100.
-2. Fill in LLM configuration information like API Key, vendor, etc.
-3. Run the Python file.
+1. 修改 `request_demo.py` 中的 IP 和 token。例如，IP 为 192.168.0.100。
+2. 填写 LLM 配置信息，如 API Key、供应商等。
+3. 运行 Python 文件。
 ```bash
-python request_demo.py
+uv run python request_demo.py
 ```
 
-#### Method 2: GUI Client
+#### 方法 2：GUI 客户端
 
-You can find a more detailed tutorial on using the GUI Client in [cappuccino-client](https://github.com/GML-FMGroup/cappuccino-client) 🖥️.
+你可以在 🖥️ [cappuccino-client](https://github.com/GML-FMGroup/cappuccino-client) 中找到更详细的 GUI 客户端使用教程。
 
-## 📖 Guide
+## 📖 指南
 
-### Design Architecture
+### 设计架构
 
-We divide **Cappuccino** into three parts: **Model, Server, Client**.
+我们将 **卡布奇诺** 分为三个部分：**模型、服务端、客户端**。
 
-- **Model:** You can choose to use vendors like dashscope, openai, or a more secure local deployment.
-- **Server:** GUI Agent deployed on the controlled computer, enables websocket network service to receive instructions from LAN, and combines desktop screenshots with model interaction so the model can output execution instructions or plans.
-- **Client:** Used to send human instructions to the server through GUI Interface or Python Scripts.
+- **模型：** 你可以选择使用 dashscope、openai 等供应商，或者更安全的本地部署。
+- **服务端：** GUI Agent，部署在被控制的计算机上，提供 HTTP API 与 SSE 流式输出，以接收来自局域网的指令，并结合桌面截图与模型交互，使模型能够输出执行指令或计划。
+- **客户端：** 用于通过 GUI 界面或 Python 脚本向服务器发送人类指令。
 
-For the design of GUI Agent, we mainly divide it into four parts: **🧠Planner, 🤖Dispatcher, ✍️Executor, 🔍Verifier**.
+对于 GUI Agent 的设计，我们主要将其分为四部分：**🧠规划器、🤖分发器、✍️执行器、🔍校验器**。
 
-- 🧠**Planner:** Breaks down complex user instructions into multiple tasks for step-by-step execution.
-- 🤖**Dispatcher:** Combined with the desktop screen and executor functions, the task is broken down into multiple subtasks and assigned to the corresponding executor. Each subtask is an atomic operation (the minimum action unit for human control of the computer, such as: click xx, enter xx).
-- ✍️**Executor:** Combines desktop screen to generate parameters for script execution based on atomic operations.
-- 🔍**Verifier:** Determines whether corresponding tasks have been completed based on desktop screen.
+- 🧠**规划器：** 将用户的复杂指令分解为多个任务，便于逐步执行。
+- 🤖**分发器：** 结合桌面屏幕和执行器的功能，将任务拆解为多个子任务并分配给对应的执行器，每个子任务都是一个原子操作（人类操控电脑的最小动作单位，如：点击xx，输入xx）
+- ✍️**执行器：** 结合桌面屏幕，基于原子操作生成可用于脚本执行的参数。
+- 🔍**校验器：** 根据桌面屏幕判断是否完成了对应的任务。
 
-### Supported Models
+### ⚠️ 注意事项
 
-| Planner             | Dispatcher & Verifier  | Executor           |
-|---------------------|------------------------|--------------------|
-| qwen-vl-max         | qwen-vl-max            | qwen2.5-vl-7b      |
-| gpt-4o              | gpt-4o                 |                    |
-| deepseek-v3         | qwen2.5-vl-72b         |                    |
+- 选择模型时，请确保名称正确且供应商支持该模型。
+- 我们当前的接口基于 openai 库实现。请确保供应商或本地部署支持提供的模型。
+- 由于模型输出带有不稳定性，若运行失败，可尝试再次运行或修改问题。
 
-> Supported models refer to models that can better complete the agent function after testing, and can actually replace models with the same capabilities freely. For example, the planner can use models with smaller parameters.
+## ✅ 未来计划
 
-### ⚠️ Notice
+- [ ] 接入 telegram，通过 telegram 操控电脑
 
-- Please ensure the model name is correct and the vendor supports the model when making your selection.
-- Our current interface is implemented based on the openai library. Please ensure the provider or local deployment supports the provided models.
-- Due to the inherent instability in model outputs, if execution fails, try running again or modifying your query.
+## 🤝 加入我们
 
-## ✅ Future Plans
-
-- [ ] Evaluate cappuccino's performance using WindowsArena
-- [ ] Fine-tune a model based on qwen2.5-vl-7b that can function as multiple modules, improving local deployment efficiency
-
-## 🤝 Join Us
-
-We hope more people will pay attention to our project or join us. We will further enrich our system, create a Manus-like product suitable for local deployment, and adapt to more software operations.
+希望有更多的人关注我们的项目或加入我们，我们也会进一步丰富我们的系统，打造可用于本地部署的类 Manus 产品，适配更多的软件操作。
 

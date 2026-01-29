@@ -1,61 +1,116 @@
 import asyncio
-import websockets
 import json
+import httpx
 
 async def send_request():
-    url = "ws://0.0.0.0:8000/chat"  # WebSocket 服务地址
-    async with websockets.connect(url) as websocket:
-        infro = {
-            "token": "878141"
-        }
-        await websocket.send(json.dumps(infro))
+    url = "http://0.0.0.0:8000/chat"  # HTTP SSE 服务地址
+    
+    # 将服务器生成的 Access Token 填入这里
+    access_token = "YOUR_ACCESS_TOKEN_HERE"  # 从服务器启动日志中复制
+    
+    data = {
+        "planner_model": "deepseek-v3",
+        "planner_provider": "dashscope",
+        "planner_api_key": "sk-xxx",
+        "planner_base_url": "",
+        "dispatcher_model": "qwen-max-2025-01-25",
+        "dispatcher_provider": "dashscope",
+        "dispatcher_api_key": "sk-xxx",
+        "dispatcher_base_url": "",
+        "executor_model": "qwen2.5-vl-7b-instruct",
+        "executor_provider": "dashscope",
+        "executor_api_key": "sk-xxx",
+        "executor_base_url": "",
+        "user_query": "Help me find some information from GitHub trending and write it to Word, including the project name and description",
+    }
+    
+    # 使用 Authorization header 传递 Access Token
+    headers = {"Authorization": f"Bearer {access_token}"}
 
-        data = {
-            "planner_model": "deepseek-v3",
-            "planner_provider": "dashscope",
-            "planner_api_key": "sk-xxx",
-            "planner_base_url": "",
-            "dispatcher_model": "qwen-max-2025-01-25",
-            "dispatcher_provider": "dashscope",
-            "dispatcher_api_key": "sk-xxx",
-            "dispatcher_base_url": "",
-            "executor_model": "qwen2.5-vl-7b-instruct",
-            "executor_provider": "dashscope",
-            "executor_api_key": "sk-xxx",
-            "executor_base_url": "",
-            "user_query": "Help me find some information from GitHub trending and write it to Word, including the project name and description",
-        }
+    async with httpx.AsyncClient(timeout=None) as client:
+        async with client.stream("POST", url, json=data, headers=headers) as response:
+            if response.status_code != 200:
+                print("Request failed:", response.status_code, await response.aread())
+                return
 
-        await websocket.send(json.dumps(data))
-
-        while True:
-            response = await websocket.recv()
-
-            # 判断是否是二进制数据
-            if isinstance(response, bytes):
-                # 这里可以保存为图片或处理二进制数据
-                with open("received_image.jpg", "wb") as image_file:
-                    image_file.write(response)
-
-            elif isinstance(response, str):
-                # 如果是字符串，则认为是 JSON 数据
+            async for line in response.aiter_lines():
+                if not line or not line.startswith("data:"):
+                    continue
+                payload = line.replace("data:", "", 1).strip()
                 try:
-                    response = json.loads(response)  # 将字符串解析为 JSON 对象
-                    print("Received JSON data:", response)
-                    if response["message"] == "Process processing":
-                        await websocket.send(json.dumps({"message": "Successfully obtained data"}))
-                    elif response["message"] == "Processing complete" or response["message"] == "Process interruption":
-                        await websocket.close()  # 关闭 WebSocket 连接
-                        break
-
+                    message = json.loads(payload)
                 except json.JSONDecodeError:
                     print("Failed to decode JSON data")
+                    continue
+
+                print("Received JSON data:", message)
+                if message.get("message") in {"Process complete", "Process interruption"}:
+                    break
 
 
-                await asyncio.sleep(0.5)
+async def get_screenshot():
+    """获取单张截图"""
+    url = "http://0.0.0.0:8000/screenshot"
+    access_token = "YOUR_ACCESS_TOKEN_HERE"  # 与 chat 使用相同的 token
+    
+    headers = {"Authorization": f"Bearer {access_token}"}
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, json={}, headers=headers)
+        if response.status_code == 200:
+            with open("screenshot.jpg", "wb") as f:
+                f.write(response.content)
+            print("Screenshot saved to screenshot.jpg")
+        else:
+            print("Failed to get screenshot:", response.status_code)
 
 
-# 运行客户端
-asyncio.get_event_loop().run_until_complete(send_request())
+async def monitor_screenshots():
+    """实时监控截图流（SSE 方式，更高效）"""
+    url = "http://0.0.0.0:8000/screenshot/stream"
+    access_token = "YOUR_ACCESS_TOKEN_HERE"  # 与 chat 使用相同的 token
+    
+    headers = {"Authorization": f"Bearer {access_token}"}
+    
+    async with httpx.AsyncClient(timeout=None) as client:
+        async with client.stream("POST", url, json={}, headers=headers) as response:
+            if response.status_code != 200:
+                print("Failed to start screenshot stream:", response.status_code)
+                return
+            
+            print("Screenshot stream started, receiving frames...")
+            frame_count = 0
+            async for line in response.aiter_lines():
+                if not line or not line.startswith("data:"):
+                    continue
+                payload = line.replace("data:", "", 1).strip()
+                try:
+                    message = json.loads(payload)
+                    if message.get("type") == "screenshot":
+                        frame_count += 1
+                        # 解码 base64 并保存（这里只是示例，实际可以显示或处理）
+                        import base64
+                        screenshot_data = base64.b64decode(message["data"])
+                        # 可选：每隔10帧保存一次
+                        if frame_count % 10 == 0:
+                            with open(f"monitor_frame_{frame_count}.jpg", "wb") as f:
+                                f.write(screenshot_data)
+                            print(f"Saved frame {frame_count}")
+                    elif message.get("message"):
+                        print("Server message:", message["message"])
+                except json.JSONDecodeError:
+                    continue
+                except KeyboardInterrupt:
+                    print("Stopping screenshot monitoring...")
+                    break
+
+
+asyncio.run(send_request())
+
+# 如果需要获取单张截图，取消下面的注释
+# asyncio.run(get_screenshot())
+
+# 如果需要实时监控截图流，取消下面的注释
+# asyncio.run(monitor_screenshots())
 
 

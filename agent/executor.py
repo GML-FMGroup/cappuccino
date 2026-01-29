@@ -2,9 +2,9 @@ import os
 import platform
 import time
 import json
-from utils import get_base64_screenshot
+from .utils import get_base64_screenshot
 from openai import OpenAI
-from executors import *
+from .executors import *
 
 class executor:
     """

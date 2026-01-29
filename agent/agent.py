@@ -3,11 +3,11 @@ import os
 import platform
 import logging
 import time
-from utils import get_base64_screenshot
-from planner import planner
-from dispatcher import dispatcher
-from executor import executor
-from verifier import verifier
+from .utils import get_base64_screenshot
+from .planner import planner
+from .dispatcher import dispatcher
+from .executor import executor
+from .verifier import verifier
 
 class Agent:
     """

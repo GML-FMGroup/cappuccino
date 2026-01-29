@@ -2,7 +2,7 @@ import json
 import os
 import platform
 from openai import OpenAI
-from utils import get_base64_screenshot
+from .utils import get_base64_screenshot
 
 class dispatcher:
     """
