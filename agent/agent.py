@@ -16,6 +16,8 @@ import platform
 import logging
 import time
 import uuid
+import asyncio
+from functools import partial
 from typing import Dict, Callable, Optional
 
 from .memory import TaskContextMemory
@@ -234,7 +236,11 @@ class Agent:
     
     async def _run_executor(self, action_dict: Dict):
         """运行执行器"""
-        completion, actions = self.executor(action_dict, self.task_memory)
+        loop = asyncio.get_event_loop()
+        completion, actions = await loop.run_in_executor(
+            None,
+            partial(self.executor, action_dict, self.task_memory)
+        )
         
         # 确定使用的模型
         executor_type = action_dict.get("executor", "")
@@ -261,7 +267,11 @@ class Agent:
     
     async def _run_initial_plan(self):
         """运行初始规划"""
-        completion, thinking, plan = self.planner.plan(self.data["user_query"])
+        loop = asyncio.get_event_loop()
+        completion, thinking, plan = await loop.run_in_executor(
+            None, 
+            partial(self.planner.plan, self.data["user_query"])
+        )
         
         # 设置初始规划
         self.task_memory.set_plan(plan)
@@ -282,9 +292,10 @@ class Agent:
     
     async def _run_dispatcher(self) -> tuple:
         """运行分发决策（使用 Planner.dispatch）"""
-        completion, thinking, action = self.planner.dispatch(
-            self.task_memory,
-            task_max_memory_steps=self.task_max_memory_steps
+        loop = asyncio.get_event_loop()
+        completion, thinking, action = await loop.run_in_executor(
+            None,
+            partial(self.planner.dispatch, self.task_memory, self.task_max_memory_steps)
         )
         
         self.logger.info(
@@ -305,7 +316,11 @@ class Agent:
     
     async def _run_summarizer(self) -> Dict:
         """运行总结器"""
-        summary = self.summarizer(self.task_memory)
+        loop = asyncio.get_event_loop()
+        summary = await loop.run_in_executor(
+            None,
+            partial(self.summarizer, self.task_memory)
+        )
         
         self.logger.info(
             f"Summarizer 结果:\n"

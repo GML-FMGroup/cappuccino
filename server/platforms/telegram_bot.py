@@ -3,6 +3,7 @@ Telegram Bot 适配层
 只负责 Telegram API 对接，业务逻辑委托给 commands 模块
 """
 
+import io
 import asyncio
 from typing import Optional
 
@@ -70,7 +71,10 @@ class TelegramBotService:
         result = handle_screenshot()
         
         if result.success:
-            await update.message.reply_photo(result.data, caption="🖥️ 桌面截图")
+            image_bytes = result.data["image_bytes"]
+            photo_buffer = io.BytesIO(image_bytes)
+            photo_buffer.seek(0)
+            await update.message.reply_photo(photo_buffer)
         else:
             await update.message.reply_text(result.message)
     
@@ -126,13 +130,13 @@ class TelegramBotService:
                     )
                     return
                 
-                if stream_msg.is_complete:
-                    await update.message.reply_text(messages.MSG_TASK_COMPLETE)
-                    return
-                
                 # 格式化输出，每条都发送新消息
                 text = messages.format_role_output(stream_msg.role, stream_msg.output)
                 await update.message.reply_text(text)
+                
+                # 如果是完成消息（通常是summarizer），发送后就结束
+                if stream_msg.is_complete:
+                    return
         
         except asyncio.CancelledError:
             await update.message.reply_text(messages.MSG_TASK_CANCELLED)

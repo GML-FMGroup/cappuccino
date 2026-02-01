@@ -184,7 +184,7 @@ class Planner:
 ## 决策原则
 
 1. **基于现状**：根据当前截图、历史动作和总规划决策
-2. **循序渐进**：每次只执行一个具体动作
+2. **循序渐进**：每次只执行一个具体动作，如：点击、输入、回车需要分解为不同的动作
 3. **灵活调整**：如果发现规划不符合实际，使用 modify_plan
 4. **及时结束**：当所有步骤完成时，使用 end
 
@@ -245,18 +245,13 @@ class Planner:
                 saved_info_str
             ])
         
-        # 已保存的信息
-        saved_info_str = task_memory.get_saved_info()
-        if saved_info_str != "暂无已保存信息":
-            prompt_parts.extend([
-                "",
-                "### 已保存的信息",
-                saved_info_str
-            ])
-        
+        # 历史动作
         recent_actions = task_memory.get_recent_actions(task_max_memory_steps)
         if recent_actions:
-            prompt_parts.append("\n### 最近的动作历史")
+            prompt_parts.extend([
+                "",
+                "### 最近的动作历史"
+            ])
             for i, action in enumerate(recent_actions, 1):
                 prompt_parts.append(f"{i}. {action.action_type}")
                 if action.action_type == "execute":
@@ -265,8 +260,11 @@ class Planner:
                 elif action.action_type == "modify_plan":
                     prompt_parts.append(f"   新规划: {action.params.get('new_plan')}")
         else:
-            prompt_parts.append("\n### 历史动作")
-            prompt_parts.append("暂无（这是第一步）")
+            prompt_parts.extend([
+                "",
+                "### 历史动作",
+                "暂无（这是第一步）"
+            ])
         
         prompt_parts.extend([
             "",

@@ -3,56 +3,55 @@
 所有 Bot 平台共用的文本内容
 """
 
-# 欢迎语
+# Welcome Message
 WELCOME_MESSAGE = """🤖 Cappuccino Agent Bot
 
-📝 使用方法：
-/help - 查看帮助
-/run <指令> - 执行任务
-/screenshot - 获取截图
+📝 Usage:
+/help - Show help
+/run <command> - Execute task
+/screenshot - Get screenshot
 
-或直接发送文本指令"""
+Or send text command directly"""
 
-# 帮助文本
-HELP_MESSAGE = """📖 命令说明：
+# Help Message
+HELP_MESSAGE = """📖 Commands:
 
-🚀 /run <指令>
-   执行 Agent 任务
-   示例：/run 打开浏览器搜索 Python 教程
+🚀 /run <command>
+   Execute Agent task
+   Example: /run open browser and search Python tutorial
 
 📸 /screenshot
-   获取当前桌面截图
+   Get current desktop screenshot
 
-💡 提示：也可以直接发送文本指令，Bot 会自动执行"""
+💡 Tip: You can also send text command directly"""
 
-# 状态消息
-MSG_UNAUTHORIZED = "❌ 未授权"
-MSG_TASK_RUNNING = "⚠️ 已有任务运行中，请等待完成"
-MSG_NEED_QUERY = "⚠️ 请提供指令，例如：/run 打开浏览器"
-MSG_GETTING_SCREENSHOT = "📸 正在获取截图..."
-MSG_SCREENSHOT_FAILED = "❌ 获取截图失败"
-MSG_TASK_COMPLETE = "✅ 任务完成"
-MSG_TASK_CANCELLED = "❌ 任务已取消"
+# Status Messages
+MSG_UNAUTHORIZED = "❌ Unauthorized"
+MSG_TASK_RUNNING = "⚠️ Task is already running, please wait"
+MSG_NEED_QUERY = "⚠️ Please provide command, e.g.: /run open browser"
+MSG_GETTING_SCREENSHOT = "📸 Getting screenshot..."
+MSG_SCREENSHOT_FAILED = "❌ Failed to get screenshot"
+MSG_TASK_COMPLETE = "✅ Task completed"
+MSG_TASK_CANCELLED = "❌ Task cancelled"
 
-# 格式化模板
+# Format Templates
 def format_task_start(query: str) -> str:
-    return f"🚀 执行：{query}"
+    return f"🚀 Executing: {query}"
 
 def format_task_error(error: str) -> str:
     return f"❌ {error}"
 
 def format_task_interrupt(error: str) -> str:
-    return f"❌ 任务中断：{error}"
+    return f"❌ Task interrupted: {error}"
 
 def format_exec_error(error: str) -> str:
-    return f"❌ 执行错误：{error}"
+    return f"❌ Execution error: {error}"
 
-# 角色图标
+# Role Icons
 ROLE_ICONS = {
     "planner": "🧠",
-    "dispatcher": "🤖",
     "executor": "✍️",
-    "verifier": "🔍"
+    "summarizer": "📋"
 }
 
 def format_role_output(role: str, output: dict) -> str:
@@ -60,26 +59,68 @@ def format_role_output(role: str, output: dict) -> str:
     icon = ROLE_ICONS.get(role, "📌")
     
     if role == "planner":
-        tasks = output.get("tasks", [])
-        if tasks:
-            return f"{icon} 规划器：找到 {len(tasks)} 个任务"
-        return f"{icon} 规划器"
-    
-    elif role == "dispatcher":
-        subtasks = output.get("subtasks", [])
-        if subtasks:
-            return f"{icon} 分发器：生成 {len(subtasks)} 个子任务"
-        return f"{icon} 分发器"
+        # Display planning thinking and plan
+        thinking = output.get("thinking", "")
+        plan = output.get("plan", "")
+        action = output.get("action", {})
+        
+        if action:
+            # dispatcher mode
+            action_type = action.get("type", "")
+            if action_type == "execute":
+                params = action.get("params", {})
+                executor = params.get("executor", "")
+                action_desc = params.get("action", "")
+                return f"{icon} Planner\n💭 {thinking[:100]}...\n➡️ Next: {action_desc[:80]}"
+            elif action_type == "end":
+                return f"{icon} Planner\n💭 {thinking[:100]}...\n➡️ Ending task"
+            elif action_type == "save_info":
+                params = action.get("params", {})
+                key = params.get("key", "")
+                return f"{icon} Planner\n💭 {thinking[:100]}...\n💾 Saving: {key}"
+            elif action_type == "modify_plan":
+                return f"{icon} Planner\n💭 {thinking[:100]}...\n🔄 Modifying plan"
+        elif plan:
+            # initial planning mode
+            return f"{icon} Planner\n💭 {thinking[:100]}...\n📝 Plan: {plan[:150]}"
+        
+        return f"{icon} Planner\n💭 {thinking[:150]}"
     
     elif role == "executor":
         actions = output.get("actions", [])
-        if actions:
-            return f"{icon} 执行器：执行 {len(actions)} 个动作"
-        return f"{icon} 执行器"
+        executor_type = output.get("executor", "")
+        action_desc = output.get("action", "")
+        
+        if actions and action_desc:
+            # Display action summary
+            action_summary = ", ".join([a.get("name", "") for a in actions[:3]])
+            if len(actions) > 3:
+                action_summary += f" +{len(actions)-3} more"
+            return f"{icon} Executor\n🎯 Task: {action_desc[:80]}\n⚡ Actions: {action_summary}"
+        elif actions:
+            return f"{icon} Executor: {len(actions)} action(s)"
+        elif action_desc:
+            return f"{icon} Executor\n🎯 {action_desc[:100]}"
+        
+        return f"{icon} Executor"
     
-    elif role == "verifier":
-        is_completed = output.get("is_completed", False)
-        status = "✅ 已完成" if is_completed else "⏳ 未完成"
-        return f"{icon} 校验器：{status}"
+    elif role == "summarizer":
+        summary = output.get("summary", {})
+        
+        # Handle actual summarizer output format
+        if isinstance(summary, dict):
+            summary_text = summary.get("summary", "")
+            success = summary.get("success", True)
+            status_icon = "✅" if success else "⚠️"
+            
+            if summary_text:
+                return f"{icon} Summary\n{status_icon} {summary_text}"
+            else:
+                return f"{icon} Summary: Task completed"
+        elif isinstance(summary, str):
+            # If summary is a string
+            return f"{icon} Summary\n{summary}"
+        
+        return f"{icon} Summary"
     
     return f"{icon} {role}"

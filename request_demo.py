@@ -10,7 +10,7 @@ async def send_request():
     
     # 简化请求：只传用户查询，模型配置从 .env 读取
     data = {
-        "user_query": "将 english 歌单的前两首歌名告诉微信的 bb 肥",
+        "user_query": "打开代码随想录",
     }
     
     # 使用 Authorization header 传递 Access Token

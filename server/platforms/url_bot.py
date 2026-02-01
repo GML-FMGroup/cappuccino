@@ -126,7 +126,6 @@ class URLBotService:
             user_id = str(data.get("user_id", "default"))
             enable_memory = data.get("enable_memory", False)
             
-            logger.info(f"📨 POST /chat - 收到请求: user_id={user_id}, enable_memory={enable_memory}")
             logger.debug(f"   查询: {user_query[:80]}...")
             
             # Build request config for model overrides
@@ -191,7 +190,6 @@ class URLBotService:
         
         # Execute through command pipeline
         try:
-            logger.info(f"🔄 POST /chat - 开始执行命令：{user_query}")
             
             async def stream_response():
                 """

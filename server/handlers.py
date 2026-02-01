@@ -86,36 +86,40 @@ class TaskHandler:
         agent_config = self._build_agent_config(enhanced_query, request_config)
         
         # 3. 执行任务（Agent 内部使用 TaskContextMemory）
-        logger.info(f"🚀 执行 Agent 任务")
-        assistant_response_parts = []  # 收集响应用于保存记忆
+        logger.info(f"🚀 执行 Agent 任务：{query}")
+        final_summary = None  # 只保存最终总结
         
-        async for stream_msg in self._run_agent(agent_config):
-            logger.debug(f"📤 收到流消息 - role: {stream_msg.role}, is_complete: {stream_msg.is_complete}, is_error: {stream_msg.is_error}")
-            
-            # 收集响应内容
-            if not stream_msg.is_error and not stream_msg.is_complete:
-                assistant_response_parts.append(
-                    f"{stream_msg.role}: {stream_msg.output}"
-                )
-            
-            yield stream_msg
-            
-            # 如果出错或完成，跳出
-            if stream_msg.is_error or stream_msg.is_complete:
-                break
+        try:
+            async for stream_msg in self._run_agent(agent_config):
+                logger.debug(f"📤 收到流消息 - role: {stream_msg.role}, is_complete: {stream_msg.is_complete}, is_error: {stream_msg.is_error}")
+                
+                # 只收集 summarizer 的总结内容
+                if stream_msg.role == "summarizer" and not stream_msg.is_error:
+                    summary = stream_msg.output.get("summary", {})
+                    if isinstance(summary, dict):
+                        final_summary = summary.get("summary", "")
+                    else:
+                        final_summary = str(summary)
+                
+                yield stream_msg
+                
+                # 如果出错或完成，跳出
+                if stream_msg.is_error or stream_msg.is_complete:
+                    break
         
-        # 4. 保存记忆 (User Memory)
-        if enable_memory and assistant_response_parts:
-            logger.debug(f"💾 保存任务记忆 - user_id: {user_id}")
-            try:
-                assistant_response = "\n".join(assistant_response_parts)
-                await self.memory_manager.save_interaction(
-                    user_id=user_id,
-                    user_query=query,  # 保存原始 query，不是 enhanced
-                    assistant_response=assistant_response
-                )
-            except Exception as e:
-                logger.warning(f"⚠️ 保存记忆失败: {e}")
+        finally:
+            # 4. 保存记忆 (User Memory) - 只保存总结
+            if enable_memory and final_summary:
+                logger.info(f"💾 保存任务记忆 - user_id: {user_id}")
+                try:
+                    await self.memory_manager.save_interaction(
+                        user_id=user_id,
+                        user_query=query,  # 保存原始 query，不是 enhanced
+                        assistant_response=final_summary
+                    )
+                    logger.info(f"✅ 记忆保存成功")
+                except Exception as e:
+                    logger.error(f"❌ 保存记忆失败: {e}", exc_info=True)
     
     async def _run_agent(
         self,

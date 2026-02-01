@@ -77,9 +77,6 @@ class TaskContextMemory:
         # 保存的重要信息（键值对）
         self.saved_info: Dict[str, str] = {}
         
-        # 保存的重要信息（键值对）
-        self.saved_info: Dict[str, str] = {}
-        
         # 当前步骤数
         self.current_step = 0
         
