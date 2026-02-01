@@ -1,71 +1,30 @@
-from pydantic import BaseModel, Field
-from agent.agent import Agent
-from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import StreamingResponse
-import io
-import json
-import random
+"""
+Unified Server - Multi-Platform Bot Orchestrator
+Manages both Telegram and HTTP/URL API platforms through unified architecture.
+All platforms share the same commands, handlers, and memory systems.
+"""
+
 import secrets
 import socket
 import asyncio
-import pyautogui
+import threading
 import uvicorn
+import logging
+from fastapi import FastAPI
 
-# message 状态说明
-# Invalid token: token错误
-# Token verification passed: token验证通过
-# Process processing: 处理中
-# Successfully obtained data: 成功获取数据（在处理中时，由客户端发送，用于保持连接）
-# Process complete: 处理完成
-# Process interruption: 处理中断
+from config import config
+from .platforms.telegram_bot import TelegramBotService
+from .platforms.url_bot import URLBotService, URLBotConfig
+from .memory.manager import MemoryManager
+from .logging_config import setup_logging
 
-OPENAI_URL = "https://api.openai.com/v1"
-DASHSCOPE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-SILICONFLOW_URL = "https://api.siliconflow.cn/v1"
-MODELSCOPE_URL = "https://api-inference.modelscope.cn/v1/"
+logger = logging.getLogger(__name__)
 
-class RequestParams(BaseModel):
-    planner_model: str = Field(None, description="Model used by the planner")
-    planner_provider: str = Field(None, description="Provider for the planner: 'local', 'openai', 'dashscope', or 'siliconflow'")
-    planner_api_key: str = Field(None, description="API key for the planner provider, required if the provider is not 'local'")
-    planner_base_url: str = Field(None, description="Base URL for the planner provider, required if the provider is 'local'")
-    dispatcher_model: str = Field(None, description="Model used by the dispatcher")
-    dispatcher_provider: str = Field(None, description="Provider for the dispatcher: 'local', 'dashscope', or 'siliconflow'")
-    dispatcher_api_key: str = Field(None, description="API key for the dispatcher provider, required if the provider is not 'local'")
-    dispatcher_base_url: str = Field(None, description="Base URL for the dispatcher provider, required if the provider is 'local'")
-    executor_model: str = Field(..., description="Model used by the executor")
-    executor_provider: str = Field(..., description="Provider for the executor: 'local', 'dashscope', or 'siliconflow'")
-    executor_api_key: str = Field(None, description="API key for the executor provider, required if the provider is not 'local'")
-    executor_base_url: str = Field(None, description="Base URL for the executor provider, required if the provider is 'local'")
-    user_query: str = Field(None, description="User's query, required if the agent type is 'planner'")
-
-def predefined_url(data: dict) -> dict:
-    provider_urls = {
-        "openai": OPENAI_URL,
-        "dashscope": DASHSCOPE_URL,
-        "siliconflow": SILICONFLOW_URL,
-        "modelscope": MODELSCOPE_URL,
-    }
-    if data["planner_provider"] in provider_urls:
-        data["planner_base_url"] = provider_urls[data["planner_provider"]]
-    if data["dispatcher_provider"] in provider_urls:
-        data["dispatcher_base_url"] = provider_urls[data["dispatcher_provider"]]
-    if data["executor_provider"] in provider_urls:
-        data["executor_base_url"] = provider_urls[data["executor_provider"]]
-    return data
-
-def validate_and_update_data(data: dict) -> dict:
-    for field in RequestParams.model_fields:  # Updated from __fields__ to model_fields
-        if field not in data:
-            data[field] = ""
-    data = predefined_url(data)
-    return data
 
 def get_local_ip():
+    """Get the local machine's IP address"""
     try:
-        # 创建一个 UDP socket
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # 连接到外部服务器（不会真正建立连接）
         s.connect(("8.8.8.8", 80))
         local_ip = s.getsockname()[0]
         s.close()
@@ -74,138 +33,119 @@ def get_local_ip():
         return f"Error: {e}"
 
 
-# 生成安全的 Access Token 用于所有接口认证
-ACCESS_TOKEN = secrets.token_hex(32)  # 64字符的安全密钥
-print(f"Generated Access Token: {ACCESS_TOKEN}")
+# Generate cryptographic Access Token for authentication
+# ACCESS_TOKEN = secrets.token_hex(32)  # 64-character hex string
+ACCESS_TOKEN = "1"  # 开发期间默认用 1 先
 
-app = FastAPI()
 
-@app.post("/chat")
-async def chat(request: Request):
-    data = await request.json()
-    # 验证 Access Token (可以从 header 或 body 中获取)
-    access_token = request.headers.get("Authorization") or data.get("access_token")
-    if access_token:
-        # 支持 Bearer token 格式
-        if access_token.startswith("Bearer "):
-            access_token = access_token[7:]
-    if access_token != ACCESS_TOKEN:
-        raise HTTPException(status_code=401, detail="Invalid access token")
+# Create main FastAPI app
+app = FastAPI(title="Multi-Platform Bot Server")
 
-    data = validate_and_update_data(data)
-    print("The data has been received, and the agent execution starts")
-
-    queue: asyncio.Queue = asyncio.Queue()
-
-    async def send_callback(role, intermediate_output):
-        intermediate_infor = {
-            "message": "Process processing",
-            "role": role,
-            "intermediate_output": intermediate_output
-        }
-        await queue.put(intermediate_infor)
-
-    async def run_agent():
-        try:
-            agent = Agent(send_callback, data)
-            await agent.process()
-            print("Process complete")
-            await queue.put({"message": "Process complete"})
-        except Exception as e:
-            await queue.put({"message": "Process interruption", "error": f"{e}"})
-        finally:
-            await queue.put(None)
-
-    asyncio.create_task(run_agent())
-
-    async def event_generator():
-        yield f"data: {json.dumps({'message': 'Access token verification passed'}, ensure_ascii=False)}\n\n"
-        while True:
-            item = await queue.get()
-            if item is None:
-                break
-            yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
-    )
-
-@app.post("/screenshot")
-async def screenshot(request: Request):
-    """获取单张截图"""
-    data = await request.json()
-    # 验证 Access Token
-    access_token = request.headers.get("Authorization") or data.get("access_token")
-    if access_token and access_token.startswith("Bearer "):
-        access_token = access_token[7:]
-    if access_token != ACCESS_TOKEN:
-        raise HTTPException(status_code=401, detail="Invalid access token")
-
-    screenshot = pyautogui.screenshot()
-    screenshot = screenshot.resize((screenshot.width // 2, screenshot.height // 2))
-    screenshot = screenshot.convert("RGB")
-    screenshot_bytes = io.BytesIO()
-    screenshot.save(screenshot_bytes, format="JPEG", quality=85)
-    screenshot_bytes.seek(0)
-    return Response(content=screenshot_bytes.read(), media_type="image/jpeg")
-
-@app.post("/screenshot/stream")
-async def screenshot_stream(request: Request):
-    """SSE 流式推送截图，用于实时监控"""
-    data = await request.json()
-    # 验证 Access Token
-    access_token = request.headers.get("Authorization") or data.get("access_token")
-    if access_token and access_token.startswith("Bearer "):
-        access_token = access_token[7:]
-    if access_token != ACCESS_TOKEN:
-        raise HTTPException(status_code=401, detail="Invalid access token")
-
-    async def screenshot_generator():
-        yield f"data: {{\"message\": \"Screenshot stream started\"}}\n\n"
-        try:
-            while True:
-                screenshot = pyautogui.screenshot()
-                screenshot = screenshot.resize((screenshot.width // 2, screenshot.height // 2))
-                screenshot = screenshot.convert("RGB")
-                screenshot_bytes = io.BytesIO()
-                screenshot.save(screenshot_bytes, format="JPEG", quality=85)
-                screenshot_bytes.seek(0)
-                
-                # 将截图编码为 base64
-                import base64
-                screenshot_base64 = base64.b64encode(screenshot_bytes.read()).decode('utf-8')
-                
-                # 发送截图数据
-                yield f"data: {{\"type\": \"screenshot\", \"data\": \"{screenshot_base64}\"}}\n\n"
-                
-                # 控制推送频率（每秒1帧）
-                await asyncio.sleep(1)
-        except asyncio.CancelledError:
-            yield f"data: {{\"message\": \"Screenshot stream stopped\"}}\n\n"
-
-    return StreamingResponse(
-        screenshot_generator(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
-    )
 
 def main():
-    """Run HTTP server with SSE for chat and HTTP polling for screenshots."""
-    host = "0.0.0.0"
-    port = 8000
-
+    """
+    Initialize and start multi-platform bot server.
+    
+    Features:
+    - Setup enhanced logging system
+    - Validates configuration
+    - Initializes memory system
+    - Starts enabled platforms (Telegram, URL API)
+    - Manages platform lifecycle
+    """
+    
+    # Initialize logging system (before any log output)
+    setup_logging(log_level=config.server.log_level)
+    
+    logger.info("=" * 80)
+    logger.info("🔧 初始化配置...")
+    logger.info("=" * 80)
+    
+    print("=" * 80)
+    print("🔧 初始化配置...")
+    print("=" * 80)
+    
+    validation = config.validate()
+    
+    logger.info(f"配置验证结果: {validation}")
+    
+    print("=" * 80)
+    
+    # Model configuration must be complete
+    if not (validation.get("planning") and validation.get("grounding")):
+        print("❌ 模型配置不完整，无法启动服务")
+        return
+    
+    # Initialize memory system
+    MemoryManager.initialize(db_path="./data/memory.db")
+    print("✅ 内存系统已初始化")
+    
+    # Get server configuration
+    host = config.server.host
+    port = config.server.port
     local_ip = get_local_ip()
-    print("="*80)
-    print(f"Chat SSE: POST http://{local_ip}:{port}/chat")
-    print(f"Screenshot: POST http://{local_ip}:{port}/screenshot (单次获取)")
-    print(f"Screenshot Stream: POST http://{local_ip}:{port}/screenshot/stream (实时监控)")
-    print(f"")
-    print(f"All endpoints require Access Token in Authorization header or 'access_token' field")
-    print("="*80)
-
-    uvicorn.run(app, host=host, port=port)
-
-if __name__ == "__main__":
-    main()
+    
+    # Print startup information
+    print("=" * 80)
+    print("✨ 服务启动信息\n")
+    print(f"Access Token: {ACCESS_TOKEN}")
+    print("=" * 80)
+    
+    # Initialize URL API Bot (if enabled)
+    if config.url_api.enabled:
+        url_config = URLBotConfig(
+            host=config.server.host,
+            port=config.server.port,
+            enabled=True
+        )
+        url_bot = URLBotService(config=url_config, access_token=ACCESS_TOKEN)
+        url_app = url_bot.get_app()
+        
+        # Mount URL bot endpoints to main app
+        app.mount("", url_app)
+        
+        print(f"✅ URL API 已启用")
+        print(f"\n📡 访问地址:")
+        print(f"   - 本地:     http://127.0.0.1:{port}")
+        if local_ip and local_ip != "127.0.0.1":
+            print(f"   - 局域网:   http://{local_ip}:{port}")
+        print(f"\n📋 可用端点:")
+        print(f"   - POST /chat")
+        print(f"   - POST /screenshot")
+        print(f"   - POST /screenshot/stream")
+    else:
+        print("⊘ URL API 未启用")
+    
+    print("=" * 80)
+    
+    # Initialize Telegram Bot (if enabled)
+    if config.telegram.enabled:
+        def run_telegram_bot():
+            """Run Telegram bot in separate thread with its own event loop"""
+            bot = TelegramBotService()
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                loop.run_until_complete(bot.start())
+                loop.run_forever()
+            except KeyboardInterrupt:
+                loop.run_until_complete(bot.stop())
+            finally:
+                loop.close()
+        
+        bot_thread = threading.Thread(target=run_telegram_bot, daemon=True)
+        bot_thread.start()
+        print(f"✅ Telegram Bot 已启用 (后台运行)")
+    else:
+        print("⊘ Telegram Bot 未启用")
+    
+    print("=" * 80 + "\n")
+    
+    # Start HTTP server
+    uvicorn.run(
+        app,
+        host=host,
+        port=port,
+        log_level=config.server.log_level.lower()
+    )

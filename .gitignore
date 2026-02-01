@@ -3,3 +3,9 @@ __pycache__/
 .vscode/
 
 temp/
+
+.env
+
+data/
+
+logs/

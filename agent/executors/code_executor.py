@@ -9,11 +9,11 @@ class code_executor():
     Parameters:
     - executor_client
     - executor_model (str): Model to be used by the executor client
-    - subtask (str): The subtask to be executed
+    - action (str): The action to be executed
 
     Returns:
     - completion (str): The full output of LLM
-    - actions (arr): The action of the executed subtask
+    - actions (arr): The action of the executed task
     """
     def __init__(self, executor_client, executor_model):
         self.executor_client = executor_client
@@ -104,16 +104,16 @@ wb.save(filename)
             os.chdir(original_dir)
 
 
-    def __call__(self, subtask, min_pixels=3136, max_pixels=12845056):
-        messages=[
+    def __call__(self, action, min_pixels=3136, max_pixels=12845056):
+        messages = [
             {
                 "role": "system",
-                "content": [{"type":"text","text": self._get_system_prompt()}],
+                "content": self._get_system_prompt()
             },
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": subtask},
+                    {"type": "text", "text": action},
                 ],
             }
         ]

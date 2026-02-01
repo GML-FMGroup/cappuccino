@@ -1,161 +1,324 @@
+"""
+Agent 主流程编排
+
+实现循环执行架构：
+1. 初始化 TaskContextMemory
+2. Loop (直到任务完成):
+   - Planner: 生成或更新规划
+   - Dispatcher: 分发执行子任务（Executor/MCP/Memory）
+   - 更新 TaskContextMemory
+3. Summarizer: 生成最终总结
+"""
+
 import json
 import os
 import platform
 import logging
 import time
+import uuid
+from typing import Dict, Callable, Optional
+
+from .memory import TaskContextMemory
 from .utils import get_base64_screenshot
-from .planner import planner
-from .dispatcher import dispatcher
-from .executor import executor
-from .verifier import verifier
+from .planner import Planner
+from .executor import Executor
+from .summarizer import Summarizer
+
 
 class Agent:
     """
+    Agent 任务执行引擎
+    
     Parameters:
-    - send_callback (function: (role, intermediate_output)): function to send callback with role and intermediate_output
-    - data (obj): dictionary containing the following keys:
-        - planner_model(str)
-        - planner_api_key(str)
-        - planner_base_url(str)
-        - dispatcher_model(str)
-        - dispatcher_api_key(str)
-        - dispatcher_base_url(str)
-        - executor_model(str)
-        - executor_api_key(str)
-        - executor_base_url(str)
-        - user_query(str)
+    - send_callback: 回调函数，用于发送中间结果
+    - data: 配置数据字典，包含:
+        - planning_model, planning_api_key, planning_base_url
+        - grounding_model, grounding_api_key, grounding_base_url
+        - user_query
+        - max_iterations (可选，默认 10)
+        - max_retry_per_task (可选，默认 3)
     """
 
-    def __init__(self, send_callback, data):
+    def __init__(self, send_callback: Callable, data: Dict):
         self.send_callback = send_callback
         self.data = data
-
-        # Initialize controlledOS and run_folder as environment variables
-        self.controlledOS = platform.system()
-        self.run_folder = os.path.join('temp', time.strftime("%Y%m%d-%H%M%S"))
+        
+        # 系统信息
+        self.controlled_os = platform.system()
+        
+        # 创建运行目录
+        temp_base = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'temp')
+        self.run_folder = os.path.join(temp_base, time.strftime("%Y%m%d-%H%M%S"))
         os.makedirs(self.run_folder, exist_ok=True)
         os.environ["RUN_FOLDER"] = self.run_folder
-
-        self.logger = logging.getLogger(f"AgentLogger-{self.controlledOS}")
-        self.logger.setLevel(logging.DEBUG)  # 设置日志级别为 DEBUG
-        file_handler = logging.FileHandler(os.path.join(self.run_folder, 'agent.log'))
-        file_handler.setLevel(logging.DEBUG)  # 确保处理器的日志级别也为 DEBUG
-        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-        self.logger.addHandler(file_handler)
-        self.logger.propagate = False  # 防止日志传播到根记录器
-
-        # 测试日志记录器是否正常工作
-        self.logger.debug("Logger initialized successfully.")
-
-        with open(os.path.join(self.run_folder, 'memory.json'), 'w') as memory_file:
-            json.dump({"tasks": [], "data": []}, memory_file, indent=4)
-
-        self.planner = planner(
-            self.data["planner_api_key"],
-            self.data["planner_base_url"],
-            self.data["planner_model"]
+        
+        # 初始化日志
+        self.logger = self._setup_logger()
+        
+        # 任务配置
+        self.max_iterations = data.get("max_iterations", 10)
+        self.max_retry_per_task = data.get("max_retry_per_task", 3)
+        self.task_max_memory_steps = data.get("task_max_memory_steps", 10)
+        
+        # 初始化任务上下文记忆
+        self.task_id = str(uuid.uuid4())[:8]
+        self.task_memory = TaskContextMemory(
+            task_id=self.task_id,
+            user_query=data["user_query"],
+            run_folder=self.run_folder
         )
-
-        self.dispatcher = dispatcher(
-            self.data["dispatcher_api_key"],
-            self.data["dispatcher_base_url"],
-            self.data["dispatcher_model"]
+        
+        # 初始化各组件
+        self._init_components()
+        
+        self.logger.info(f"Agent 初始化完成 - task_id: {self.task_id}")
+    
+    def _setup_logger(self) -> logging.Logger:
+        """设置日志"""
+        logger = logging.getLogger(f"Agent-{self.controlled_os}")
+        logger.setLevel(logging.DEBUG)
+        
+        file_handler = logging.FileHandler(
+            os.path.join(self.run_folder, 'agent.log'),
+            encoding='utf-8'
         )
-
-        self.executor = executor(
-            self.data["executor_api_key"],
-            self.data["executor_base_url"],
-            self.data["executor_model"]
+        file_handler.setLevel(logging.DEBUG)
+        file_handler.setFormatter(
+            logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
         )
-
-        self.verifier = verifier(
-            self.data["dispatcher_api_key"],
-            self.data["dispatcher_base_url"],
-            self.data["dispatcher_model"]
+        logger.addHandler(file_handler)
+        logger.propagate = False
+        
+        return logger
+    
+    def _init_components(self):
+        """初始化各组件"""
+        # Planning model 配置 (用于 planner, dispatcher, summarizer)
+        planning_config = {
+            "api_key": self.data["planning_api_key"],
+            "base_url": self.data["planning_base_url"],
+            "model": self.data["planning_model"]
+        }
+        
+        # Grounding model 配置 (用于 interact_executor, scroll_executor)
+        grounding_config = {
+            "api_key": self.data["grounding_api_key"],
+            "base_url": self.data["grounding_base_url"],
+            "model": self.data["grounding_model"]
+        }
+        
+        # 初始化 Planner (统一规划和分发功能)
+        self.planner = Planner(
+            api_key=planning_config["api_key"],
+            base_url=planning_config["base_url"],
+            model=planning_config["model"],
+            run_folder=self.run_folder
         )
-
+        
+        # 初始化 Executor (需要两种模型配置)
+        self.executor = Executor(
+            planning_config=planning_config,
+            grounding_config=grounding_config,
+            run_folder=self.run_folder
+        )
+        
+        # 初始化 Summarizer
+        self.summarizer = Summarizer(
+            api_key=planning_config["api_key"],
+            base_url=planning_config["base_url"],
+            model=planning_config["model"]
+        )
 
     async def process(self):
+        """
+        执行任务主流程
+        
+        1. 初始规划：Planner.plan() 生成总体规划
+        2. 循环执行：Planner.dispatch() 决定每一步动作
+        3. 总结：Summarizer 生成最终总结
+        """
         try:
-            tasks = await self.pipeline_planner(self.data["user_query"])
-            for task in tasks:
-                is_completed = False
-                completed_retry_count = 0
-                while not is_completed and completed_retry_count < 3:
-                    subtasks = await self.pipeline_dispatcher(task)
-                    # Handle special executors that might need retries
-                    retry_configs = {
-                        "wait": {"max_retries": 2, "message": "Handling page load delay"},
-                        "scroll_executor": {"max_retries": 8, "message": "Scrolling to find target content"}
-                    }
-                    if subtasks[0]["executor"] in retry_configs:
-                        config = retry_configs[subtasks[0]["executor"]]
-                        self.logger.debug(f"{config['message']}\n")
-                        for retry in range(config["max_retries"]):
-                            await self.pipeline_executor(subtasks[0])
-                            subtasks = await self.pipeline_dispatcher(task)
-                            if subtasks[0]["executor"] not in retry_configs:
-                                 break
-
-                    for subtask_dict in subtasks:
-                        await self.pipeline_executor(subtask_dict)
-                        
-                    time.sleep(0.5)
-
-                    # Check whether the current task has been completed
-                    is_completed = await self.pipeline_verifier(task)
-                    completed_retry_count += 1
-
+            self.logger.info(f"开始执行任务: {self.data['user_query'][:100]}...")
+            
+            # 第一步：生成初始规划
+            await self._run_initial_plan()
+            
+            iteration = 0
+            max_iterations = self.max_iterations
+            
+            # 主循环：不断执行 planner.dispatch() 返回的动作
+            while iteration < max_iterations:
+                iteration += 1
+                self.logger.info(f"第 {iteration} 次迭代")
+                
+                # 调用 Dispatcher 决定下一步动作
+                completion, thinking, action = await self._run_dispatcher()
+                
+                if not action or not action.get("type"):
+                    self.logger.warning("Dispatcher 返回空动作，结束任务")
+                    break
+                
+                action_type = action.get("type")
+                params = action.get("params", {})
+                
+                # 处理不同的动作类型
+                if action_type == "execute":
+                    # 执行具体操作
+                    await self._handle_execute_action(params)
+                
+                elif action_type == "save_info":
+                    # 保存信息到记忆
+                    key = params.get("key", "")
+                    value = params.get("value", "")
+                    self.task_memory.save_info(key, value)
+                    self.logger.info(f"已保存信息: {key} = {value}")
+                    
+                    # 记录动作
+                    self.task_memory.add_dispatcher_action(
+                        "save_info",
+                        {"key": key, "value": value}
+                    )
+                
+                elif action_type == "modify_plan":
+                    # 修改规划
+                    new_plan = params.get("new_plan", "")
+                    self.task_memory.set_plan(new_plan)
+                    self.logger.info(f"规划已更新: {new_plan}")
+                    
+                    # 记录动作
+                    self.task_memory.add_dispatcher_action(
+                        "modify_plan",
+                        {"new_plan": new_plan}
+                    )
+                
+                elif action_type == "end":
+                    # 任务完成
+                    self.logger.info("Dispatcher 返回 end，任务完成")
+                    break
+                
+                else:
+                    self.logger.warning(f"未知的动作类型: {action_type}")
+                    
+                time.sleep(0.5)  # 避免过快循环
+            
+            if iteration >= max_iterations:
+                self.logger.warning(f"达到最大迭代次数 {max_iterations}，停止执行")
+            
+            # 生成最终总结
+            summary = await self._run_summarizer()
+            
+            self.logger.info("任务执行完成")
+            
         except Exception as e:
-            self.logger.error("Error in process method", exc_info=True)
+            self.logger.error(f"任务执行失败: {e}", exc_info=True)
             raise
-
-
-    async def pipeline_planner(self, query):
-        # tasks example: ["task", "task"]
-        completion, thinking, tasks = self.planner(query)
-        self.logger.info(f"planner_model: {self.data['planner_model']}\nquery: {query}\ncompletion: {completion}\nthinking: {thinking}\ntasks:{tasks}\n\n")
-        intermediate_output = {
-            "planner_model": self.data["planner_model"],
-            "query": query,
-            "thinking": thinking,
-            "tasks": tasks
-        }
-        await self.send_callback("planner", intermediate_output)
-        return tasks
     
-    async def pipeline_dispatcher(self, task):
-        # subtasks example: [{executor: "", subtask: ""}, {executor: "", subtask: ""}]
-        completion, thinking, subtasks = self.dispatcher(task)
-        self.logger.info(f"dispatcher_model: {self.data['dispatcher_model']}\ntask: {task}\ncompletion: {completion}\nthinking: {thinking}\nsubtasks:{subtasks}\n\n")
+    async def _handle_execute_action(self, params: Dict):
+        """处理 execute 动作"""
+        executor_name = params.get("executor", "")
+        action_desc = params.get("action", "")
+        
+        self.logger.info(f"执行动作: {executor_name} - {action_desc}")
+        
+        # 调用 Executor
+        await self._run_executor({
+            "executor": executor_name,
+            "action": action_desc
+        })
+        
+        # 记录动作
+        self.task_memory.add_dispatcher_action(
+            "execute",
+            {"executor": executor_name, "action": action_desc}
+        )
+    
+    async def _run_executor(self, action_dict: Dict):
+        """运行执行器"""
+        completion, actions = self.executor(action_dict, self.task_memory)
+        
+        # 确定使用的模型
+        executor_type = action_dict.get("executor", "")
+        if executor_type in ["interact_executor", "scroll_executor"]:
+            model_name = self.data["grounding_model"]
+        else:
+            model_name = self.data["planning_model"]
+        
+        self.logger.info(
+            f"Executor 结果:\n"
+            f"  model: {model_name}\n"
+            f"  executor: {executor_type}\n"
+            f"  action: {action_dict.get('action', '')}\n"
+            f"  actions: {actions}"
+        )
+        
         intermediate_output = {
-            "dispatcher_model": self.data["dispatcher_model"],
-            "task": task,
-            "thinking": thinking,
-            "subtasks": subtasks
-        }
-        await self.send_callback("dispatcher", intermediate_output)
-        return subtasks
-
-    async def pipeline_executor(self, subtask):
-        completion, actions = self.executor(subtask)
-        self.logger.info(f"executor_model: {self.data['executor_model']}\nsubtask: {subtask}\ncompletion: {completion}\nactions: {actions}\n\n")
-        intermediate_output = {
-            "executor_model": self.data["executor_model"],
-            "subtask": subtask,
+            "model": model_name,
+            "executor": executor_type,
+            "action": action_dict.get('action', ''),
             "actions": actions
         }
         await self.send_callback("executor", intermediate_output)
-
-    async def pipeline_verifier(self, task):
-        completion, thinking, is_completed = self.verifier(task)
-        self.logger.info(f"verifier_model: {self.data['dispatcher_model']}\ntask: {task}\ncompletion: {completion}\nthinking: {thinking}\nis_completed:{is_completed}\n\n")
+    
+    async def _run_initial_plan(self):
+        """运行初始规划"""
+        completion, thinking, plan = self.planner.plan(self.data["user_query"])
+        
+        # 设置初始规划
+        self.task_memory.set_plan(plan)
+        
+        self.logger.info(
+            f"初始规划结果:\n"
+            f"  model: {self.data['planning_model']}\n"
+            f"  thinking: {thinking}\n"
+            f"  plan: {plan}"
+        )
+        
         intermediate_output = {
-            "verifier_model": self.data["dispatcher_model"],
-            "task": task,
+            "model": self.data["planning_model"],
             "thinking": thinking,
-            "is_completed": is_completed
+            "plan": plan
         }
-        await self.send_callback("verifier", intermediate_output)
-        return is_completed
+        await self.send_callback("planner", intermediate_output)
+    
+    async def _run_dispatcher(self) -> tuple:
+        """运行分发决策（使用 Planner.dispatch）"""
+        completion, thinking, action = self.planner.dispatch(
+            self.task_memory,
+            task_max_memory_steps=self.task_max_memory_steps
+        )
+        
+        self.logger.info(
+            f"Planner.dispatch 结果:\n"
+            f"  model: {self.data['planning_model']}\n"
+            f"  thinking: {thinking}\n"
+            f"  action: {action}"
+        )
+        
+        intermediate_output = {
+            "model": self.data["planning_model"],
+            "thinking": thinking,
+            "action": action
+        }
+        await self.send_callback("planner", intermediate_output)
+        
+        return completion, thinking, action
+    
+    async def _run_summarizer(self) -> Dict:
+        """运行总结器"""
+        summary = self.summarizer(self.task_memory)
+        
+        self.logger.info(
+            f"Summarizer 结果:\n"
+            f"  model: {self.data['planning_model']}\n"
+            f"  summary: {summary}"
+        )
+        
+        intermediate_output = {
+            "model": self.data["planning_model"],
+            "summary": summary
+        }
+        # 发送总结结果，标记任务完成
+        await self.send_callback("summarizer", intermediate_output, is_complete=True)
+        
+        return summary
 

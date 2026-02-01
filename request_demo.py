@@ -3,25 +3,14 @@ import json
 import httpx
 
 async def send_request():
-    url = "http://0.0.0.0:8000/chat"  # HTTP SSE 服务地址
+    url = "http://127.0.0.1:8000/chat"  # HTTP SSE 服务地址
     
     # 将服务器生成的 Access Token 填入这里
-    access_token = "YOUR_ACCESS_TOKEN_HERE"  # 从服务器启动日志中复制
+    access_token = "1"  # 从服务器启动日志中复制
     
+    # 简化请求：只传用户查询，模型配置从 .env 读取
     data = {
-        "planner_model": "deepseek-v3",
-        "planner_provider": "dashscope",
-        "planner_api_key": "sk-xxx",
-        "planner_base_url": "",
-        "dispatcher_model": "qwen-max-2025-01-25",
-        "dispatcher_provider": "dashscope",
-        "dispatcher_api_key": "sk-xxx",
-        "dispatcher_base_url": "",
-        "executor_model": "qwen2.5-vl-7b-instruct",
-        "executor_provider": "dashscope",
-        "executor_api_key": "sk-xxx",
-        "executor_base_url": "",
-        "user_query": "Help me find some information from GitHub trending and write it to Word, including the project name and description",
+        "user_query": "将 english 歌单的前两首歌名告诉微信的 bb 肥",
     }
     
     # 使用 Authorization header 传递 Access Token
@@ -50,8 +39,8 @@ async def send_request():
 
 async def get_screenshot():
     """获取单张截图"""
-    url = "http://0.0.0.0:8000/screenshot"
-    access_token = "YOUR_ACCESS_TOKEN_HERE"  # 与 chat 使用相同的 token
+    url = "http://127.0.0.1:8000/screenshot"
+    access_token = "1"  # 与 chat 使用相同的 token
     
     headers = {"Authorization": f"Bearer {access_token}"}
     
@@ -67,8 +56,8 @@ async def get_screenshot():
 
 async def monitor_screenshots():
     """实时监控截图流（SSE 方式，更高效）"""
-    url = "http://0.0.0.0:8000/screenshot/stream"
-    access_token = "YOUR_ACCESS_TOKEN_HERE"  # 与 chat 使用相同的 token
+    url = "http://127.0.0.1:8000/screenshot/stream"
+    access_token = "1"  # 与 chat 使用相同的 token
     
     headers = {"Authorization": f"Bearer {access_token}"}
     
@@ -105,6 +94,7 @@ async def monitor_screenshots():
                     break
 
 
+# 运行聊天请求
 asyncio.run(send_request())
 
 # 如果需要获取单张截图，取消下面的注释

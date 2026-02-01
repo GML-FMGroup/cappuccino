@@ -4,14 +4,6 @@
         "description": "Mouse clicks, keyboard inputs, shortcuts."
     },
     {
-        "name": "ocr_executor",
-        "description": "Text recognition. Use when you need to copy text."
-    },
-    {
-        "name": "scroll_executor",
-        "description": "Scroll the mouse to query the target."
-    },
-    {
         "name": "code_executor",
         "description": "Generate and execute code to generate files, such as word and excel."
     },

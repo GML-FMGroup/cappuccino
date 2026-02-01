@@ -81,11 +81,16 @@ uv sync
 ```bash
 uv run python server/server.py
 ```
-你将在控制台中看到你的 **本地 IP** 和随机生成的 **token**。下面的例子中 IP 为 192.168.0.100
+你将在控制台中看到你的 **本地 IP** 和随机生成的 **Access Token**。下面的例子中 IP 为 192.168.0.100
 ```bash
-Generated token: 854616
-Chat SSE: http://192.168.0.100:8000/chat
-Screenshot: http://192.168.0.100:8000/screenshot?token=YOUR_TOKEN
+Generated Access Token: 3919df58c3f4069c5a0f2cec9f362adba4f41c34ac1dd5de6d6f26d98f51c8a1
+================================================================================
+Chat SSE: POST http://192.168.0.100:8000/chat
+Screenshot: POST http://192.168.0.100:8000/screenshot (单次获取)
+Screenshot Stream: POST http://192.168.0.100:8000/screenshot/stream (实时监控)
+
+All endpoints require Access Token in Authorization header or 'access_token' field
+================================================================================
 ```
 
 ### 3. 发送指令
@@ -94,12 +99,16 @@ Screenshot: http://192.168.0.100:8000/screenshot?token=YOUR_TOKEN
 
 #### 方法 1：Python 脚本
 
-1. 修改 `request_demo.py` 中的 IP 和 token。例如，IP 为 192.168.0.100。
+1. 修改 `request_demo.py` 中的 IP 和 Access Token。例如，IP 为 192.168.0.100。
 2. 填写 LLM 配置信息，如 API Key、供应商等。
 3. 运行 Python 文件。
 ```bash
 uv run python request_demo.py
 ```
+
+**认证方式：**
+- 在 HTTP 请求中使用 `Authorization: Bearer <ACCESS_TOKEN>` header
+- 或在请求 body 中添加 `"access_token": "<ACCESS_TOKEN>"`
 
 #### 方法 2：GUI 客户端
 
