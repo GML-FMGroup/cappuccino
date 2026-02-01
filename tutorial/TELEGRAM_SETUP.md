@@ -131,21 +131,6 @@ TELEGRAM_ALLOWED_USERS=123456789,987654321
 uv run python run_server.py
 ```
 
-如果配置正确，你会看到类似以下的输出：
-
-```
-✅ 服务器配置正常
-✅ Planning 模型配置正常
-✅ Grounding 模型配置正常
-✅ URL API 平台已启用
-✅ Telegram Bot 配置正常
-========================================
-🚀 启动平台:
-  - URL API: http://0.0.0.0:8000
-  - Telegram Bot: @your_bot_name
-========================================
-```
-
 ---
 
 ## 💬 步骤 5：开始使用

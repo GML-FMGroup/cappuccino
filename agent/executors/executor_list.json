@@ -5,7 +5,7 @@
     },
     {
         "name": "code_executor",
-        "description": "生成并执行代码。在某些场景下，执行代码比鼠标操作更高效。"
+        "description": "生成并执行代码（可使用 Python 库等）。适用于需要直接生成文件（如 txt/Excel/PDF）、批量处理或通过代码脚本更高效完成任务的场景。"
     },
     {
         "name": "wait",
