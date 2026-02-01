@@ -204,11 +204,20 @@ class interact_executor:
         self.original_width = None
         self.original_height = None
 
+    def _normalize_key(self, key: str) -> str:
+        """Normalize key names for pyautogui"""
+        # Convert 'cmd' to 'command' for macOS
+        if self.controlledOS == "Darwin" and key == "cmd":
+            return "command"
+        return key
+
     def _gui_action(self, arguments: Dict[str, Any]) -> None:
         action = arguments.get("action")
 
         if action == "key":
             keys = arguments.get("keys", [])
+            # Normalize all keys
+            keys = [self._normalize_key(key) for key in keys]
             if len(keys) == 1:
                 pyautogui.press(keys[0])
             else:

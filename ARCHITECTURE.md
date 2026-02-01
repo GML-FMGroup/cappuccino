@@ -34,16 +34,11 @@ cappuccino/
 │   ├── summarizer.py               # 任务总结器（生成最终总结）
 │   ├── memory.py                   # 任务上下文记忆（与 user memory 分离）
 │   ├── utils.py                    # 工具函数
-│   ├── mcp/                        # MCP 工具模块 ⭐ 
-│   │   ├── __init__.py
-│   │   ├── manager.py              # MCP 工具管理器
-│   │   ├── tools.py                # 工具定义和注册
-│   │   └── client.py               # MCP 协议客户端
 │   └── executors/                  # 内置执行器
 │       ├── __init__.py
-│       ├── code_executor.py
-│       ├── interact_executor.py
-│       └── scroll_executor.py
+│       ├── executor_list.json      # 执行器列表配置
+│       ├── code_executor.py        # 代码执行器（生成文件等）
+│       └── interact_executor.py    # 交互执行器（键鼠操作）
 │
 ├── config.py                       # 统一配置管理
 ├── .env                            # 环境配置（不提交）
@@ -108,7 +103,7 @@ cappuccino/
   ║ ║ │ action = planner.dispatch(task_memory)           │  ║
   ║ ║ │                                                  │  ║
   ║ ║ │ 返回: {                                          │  ║
-  ║ ║ │   "type": "execute|modify_plan|end",          │  ║
+  ║ ║ │   "type": "execute|save_info|modify_plan|end", │  ║
   ║ ║ │   "params": {...}                              │  ║
   ║ ║ │ }                                               │  ║
   ║ ║ └──────────────────────────────────────────────────┘  ║
@@ -117,8 +112,11 @@ cappuccino/
   ║ ║ │ if action["type"] == "execute":               │  ║
   ║ ║ │   result = executor.execute(action["params"]) │  ║
   ║ ║ │                                                 │  ║
+  ║ ║ │ elif action["type"] == "save_info":           │  ║
+  ║ ║ │   task_memory.save_info(key, value)          │  ║
+  ║ ║ │                                                 │  ║
   ║ ║ │ elif action["type"] == "modify_plan":         │  ║
-  ║ ║ │   task_memory.user_query = new_plan          │  ║
+  ║ ║ │   task_memory.set_plan(new_plan)             │  ║
   ║ ║ │                                                 │  ║
   ║ ║ │ elif action["type"] == "end":                │  ║
   ║ ║ │   break  # 结束循环                            │  ║
@@ -216,17 +214,20 @@ cappuccino/
   - 输入: 总规划、最近3次动作历史、当前截图
   - 输出动作类型:
     1. **execute** - 执行具体操作 (参数: executor, action)
-    2. **modify_plan** - 修改总规划 (参数: new_plan)
-    3. **end** - 任务完成
+    2. **save_info** - 保存信息到任务记忆 (参数: key, value)
+    3. **modify_plan** - 修改总规划 (参数: new_plan)
+    4. **end** - 任务完成
   - 调用时机: 循环中每次迭代
+
+#### 3. Executor (executor.py) - 执行器管理
 - **职责**: 电脑操控动作执行
 - **内置执行器**:
-  - `code_executor`: 执行 Python 代码
-  - `interact_executor`: 模拟键盘/鼠标交互
-  - `scroll_executor`: 滚动屏幕
+  - `code_executor`: 执行 Python 代码（使用 planning 模型）
+  - `interact_executor`: 模拟键盘/鼠标交互（使用 grounding 模型）
+  - `wait`: 等待页面加载
 - **返回**: 动作执行结果 + 屏幕状态变化
 
-#### 3. Summarizer (summarizer.py) - 任务总结器
+#### 4. Summarizer (summarizer.py) - 任务总结器
 - **职责**: 生成最终任务总结
 - **功能**:
   - 基于 user_query 和 task_memory 生成总结
@@ -234,27 +235,24 @@ cappuccino/
   - 提供最终结果给用户
   - 输出格式: `{summary: str, actions: list, result: str}`
 
-#### 4. TaskContextMemory (memory.py) - 任务上下文记忆
+#### 5. TaskContextMemory (memory.py) - 任务上下文记忆
 - **职责**: 存储当前任务执行过程中的上下文（与 User Memory 分离）
 - **功能**:
   - 初始化: `TaskContextMemory(task_id, user_query, run_folder)`
   - 记录信息:
-    - 总规划 (user_query)
+    - 用户原始输入 (user_query - 不可变)
+    - 当前规划 (current_plan - 可更新)
+    - 所有历史动作（完整保存，读取时可筛选最近 N 条）
+    - 保存的重要信息 (saved_info - key-value 存储)
     - 当前执行步骤数
-    - 最近n次 dispatcher 动作历史
-    - 当前截图路径
     - 任务状态
-  - 最近n次 dispatcher 动作会自动维护（只保留最新3条）
-  - 在内存中维护，任务结束后清理（不持久化）
-- **返回**: 动作执行结果 + 屏幕状态变化
-
-#### 5. Summarizer (summarizer.py) ⭐ 新增 - 任务总结器
-- **职责**: 生成最终任务总结
-- **功能**:
-  - 基于 user_query 和 dispatcher_actions 生成总结
-  - 列出执行的所有动作和步骤
-  - 提供最终结果给用户
-  - 输出格式: `{summary: str, actions: list}`
+  - 保存到 JSON 文件：`{run_folder}/memory.json`
+  - 提供方法：
+    - `set_plan()`: 设置/更新规划
+    - `save_info()`: 保存关键信息
+    - `add_dispatcher_action()`: 添加动作记录
+    - `get_recent_actions(n)`: 获取最近 N 条动作
+    - `get_all_actions()`: 获取所有动作
 
 ### 内存系统对比
 

@@ -1,14 +1,14 @@
 [
     {
         "name": "interact_executor",
-        "description": "Mouse clicks, keyboard inputs, shortcuts."
+        "description": "鼠标点击、键盘输入、快捷键。模拟人类操作电脑。"
     },
     {
         "name": "code_executor",
-        "description": "Generate and execute code to generate files, such as word and excel."
+        "description": "生成并执行代码。在某些场景下，执行代码比鼠标操作更高效。"
     },
     {
         "name": "wait",
-        "description": "Wait for the page to load."
+        "description": "等待页面加载完成。"
     }
 ]
