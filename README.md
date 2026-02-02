@@ -70,10 +70,17 @@ pip install uv
 ```bash
 uv sync
 ```
+#### 2.3 调整配置
 
-#### 2.3 启动服务
+```bash
+cp env.example .env
+```
+
+填写对应的模型配置，可按需调整 Agent 配置、服务启动类型
 
 对于 Telegram 设置，请参考 TELEGRAM_SETUP.md 文档说明
+
+#### 2.3 启动服务
 
 ```bash
 uv run python run_server.py
@@ -81,16 +88,15 @@ uv run python run_server.py
 
 ### 3. 发送指令
 
-在另一台设备上运行以发起网络请求。当然，你也可以在被控制的终端上运行，但我们建议使用另一台设备发送指令，以避免影响计算机的操作执行。
-
 #### 方法 1：Python 脚本
 
-1. 修改 `request_demo.py` 中的 Url 和 Access Token。例如，IP 为 192.168.0.100。
-2. 填写 LLM 配置信息，如 API Key、供应商等。
-3. 运行 Python 文件。
+运行 request_demo 文件
+
 ```bash
 uv run python request_demo.py
 ```
+
+注：在另一台设备上运行以发起网络请求。当然，你也可以在被控制的终端上运行，但我们建议使用另一台设备发送指令，以避免影响计算机的操作执行。
 
 #### 方法 2：Telegram
 
