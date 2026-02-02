@@ -71,7 +71,7 @@ def format_role_output(role: str, output: dict) -> str:
                 params = action.get("params", {})
                 executor = params.get("executor", "")
                 action_desc = params.get("action", "")
-                return f"{icon} Planner\n💭 {thinking[:100]}...\n➡️ Next: {action_desc[:80]}"
+                return f"{icon} Planner\n💭 {thinking[:100]}...\n➡️ Next: {action_desc[:80]}..."
             elif action_type == "end":
                 return f"{icon} Planner\n💭 {thinking[:100]}...\n➡️ Ending task"
             elif action_type == "save_info":
@@ -82,7 +82,7 @@ def format_role_output(role: str, output: dict) -> str:
                 return f"{icon} Planner\n💭 {thinking[:100]}...\n🔄 Modifying plan"
         elif plan:
             # initial planning mode
-            return f"{icon} Planner\n💭 {thinking[:100]}...\n📝 Plan: {plan[:150]}"
+            return f"{icon} Planner\n💭 {thinking[:100]}...\n📝 Plan: {plan[:100]}..."
         
         return f"{icon} Planner\n💭 {thinking[:150]}"
     

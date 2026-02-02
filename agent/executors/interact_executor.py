@@ -243,6 +243,12 @@ class interact_executor:
         elif action == "mouse_move":
             coordinate = self._convert_coordinate(arguments.get("coordinate", [0, 0]))
             pyautogui.moveTo(coordinate[0], coordinate[1])
+            if self.controlledOS == "Windows":
+                pyautogui.scroll(-500)
+            elif self.controlledOS == "Darwin":
+                pyautogui.scroll(-10)
+            elif self.controlledOS == "Linux":
+                pyautogui.scroll(-10)
 
         elif action == "left_click":
             coordinate = self._convert_coordinate(arguments.get("coordinate", [0, 0]))
@@ -270,12 +276,20 @@ class interact_executor:
             pyautogui.doubleClick(coordinate[0], coordinate[1])
 
         elif action == "scroll":
-            pixels = arguments.get("pixels", 0)
-            pyautogui.scroll(pixels)
+            if self.controlledOS == "Windows":
+                pyautogui.scroll(-500)
+            elif self.controlledOS == "Darwin":
+                pyautogui.scroll(-10)
+            elif self.controlledOS == "Linux":
+                pyautogui.scroll(-10)
 
         elif action == "hscroll":
-            pixels = arguments.get("pixels", 0)
-            pyautogui.scroll(pixels)
+            if self.controlledOS == "Windows":
+                pyautogui.scroll(500)
+            elif self.controlledOS == "Darwin":
+                pyautogui.scroll(10)
+            elif self.controlledOS == "Linux":
+                pyautogui.scroll(10)
 
         elif action == "wait":
             wait_time = arguments.get("time", 1)
