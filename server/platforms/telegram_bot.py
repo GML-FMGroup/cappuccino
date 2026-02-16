@@ -15,6 +15,7 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
+from telegram.request import HTTPXRequest
 
 from config import config
 from server import messages
@@ -134,7 +135,7 @@ class TelegramBotService:
                 text = messages.format_role_output(stream_msg.role, stream_msg.output)
                 await update.message.reply_text(text)
                 
-                # 如果是完成消息（通常是summarizer），发送后就结束
+                # 如果是完成消息（通常是reply），发送后就结束
                 if stream_msg.is_complete:
                     return
         
@@ -151,7 +152,21 @@ class TelegramBotService:
             print("❌ Telegram Bot Token 未配置")
             return
         
-        self.app = Application.builder().token(config.telegram.bot_token).build()
+        # 配置更长的超时时间，避免长时间运行的任务被中断
+        # read_timeout: 等待服务器响应的超时时间（秒）
+        # write_timeout: 发送请求的超时时间（秒）
+        # connect_timeout: 建立连接的超时时间（秒）
+        # pool_timeout: 从连接池获取连接的超时时间（秒）
+        timeout = float(config.telegram.request_timeout)
+        request = HTTPXRequest(
+            connection_pool_size=8,
+            read_timeout=timeout,       # 可配置的读取超时
+            write_timeout=timeout,      # 可配置的写入超时
+            connect_timeout=10.0,       # 10秒连接超时
+            pool_timeout=10.0           # 10秒连接池超时
+        )
+        
+        self.app = Application.builder().token(config.telegram.bot_token).request(request).build()
         
         # 注册命令处理器
         self.app.add_handler(CommandHandler("start", self.start_command))

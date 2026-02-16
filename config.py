@@ -25,6 +25,7 @@ class TelegramConfig:
     enabled: bool = False
     bot_token: str = ""
     allowed_users: List[int] = field(default_factory=list)
+    request_timeout: int = 300  # Telegram API 请求超时时间（秒），默认5分钟
     
     def is_complete(self) -> bool:
         """检查配置是否完整"""
@@ -107,7 +108,8 @@ class Config:
         self.telegram = TelegramConfig(
             enabled=os.getenv("TELEGRAM_ENABLED", "false").lower() == "true",
             bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
-            allowed_users=self._parse_user_list(os.getenv("TELEGRAM_ALLOWED_USERS", ""))
+            allowed_users=self._parse_user_list(os.getenv("TELEGRAM_ALLOWED_USERS", "")),
+            request_timeout=int(os.getenv("TELEGRAM_REQUEST_TIMEOUT", "300"))
         )
     
     @staticmethod

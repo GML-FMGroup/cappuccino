@@ -51,7 +51,7 @@ def format_exec_error(error: str) -> str:
 ROLE_ICONS = {
     "planner": "🧠",
     "executor": "✍️",
-    "summarizer": "📋"
+    "reply": "📋"
 }
 
 def format_role_output(role: str, output: dict) -> str:
@@ -72,8 +72,8 @@ def format_role_output(role: str, output: dict) -> str:
                 executor = params.get("executor", "")
                 action_desc = params.get("action", "")
                 return f"{icon} Planner\n💭 {thinking[:100]}...\n➡️ Next: {action_desc[:80]}..."
-            elif action_type == "end":
-                return f"{icon} Planner\n💭 {thinking[:100]}...\n➡️ Ending task"
+            elif action_type == "reply":
+                return f"{icon} Planner\n💭 {thinking[:100]}...\n➡️ Replying to user"
             elif action_type == "save_info":
                 params = action.get("params", {})
                 key = params.get("key", "")
@@ -104,23 +104,10 @@ def format_role_output(role: str, output: dict) -> str:
         
         return f"{icon} Executor"
     
-    elif role == "summarizer":
-        summary = output.get("summary", {})
-        
-        # Handle actual summarizer output format
-        if isinstance(summary, dict):
-            summary_text = summary.get("summary", "")
-            success = summary.get("success", True)
-            status_icon = "✅" if success else "⚠️"
-            
-            if summary_text:
-                return f"{icon} Summary\n{status_icon} {summary_text}"
-            else:
-                return f"{icon} Summary: Task completed"
-        elif isinstance(summary, str):
-            # If summary is a string
-            return f"{icon} Summary\n{summary}"
-        
-        return f"{icon} Summary"
+    elif role == "reply":
+        message = output.get("message", "")
+        if message:
+            return f"{icon} {message}"
+        return f"{icon} Reply"
     
     return f"{icon} {role}"

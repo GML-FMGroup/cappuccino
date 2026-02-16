@@ -54,8 +54,7 @@ class TaskHandler:
         Yields:
             StreamMessage: 流式消息
         """
-        logger.info(f"⚙️  开始执行任务 - user_id: {user_id}, enable_memory: {enable_memory}")
-        logger.debug(f"   查询: {query[:100]}...")  # 只记录前100个字符
+        logger.info(f"⚙️ 收到任务 - user_id: {user_id}, enable_memory: {enable_memory}, query: {query}")
         
         # 1. 加载历史记忆 (User Memory)
         history = []
@@ -63,7 +62,7 @@ class TaskHandler:
         
         if enable_memory:
             try:
-                logger.debug(f"📚 加载用户记忆: {user_id}")
+                logger.info(f"📚 加载用户记忆: {user_id}")
                 history = await self.memory_manager.load_history(
                     user_id, 
                     limit=config.memory.user_max_history
@@ -76,30 +75,26 @@ class TaskHandler:
                     history, 
                     max_context_length=config.memory.user_max_history
                 )
-                logger.debug(f"🔗 增强查询长度: {len(enhanced_query)} 字符")
+                logger.info(f"🔗 enhanced_query: {enhanced_query}")
             except Exception as e:
                 logger.warning(f"⚠️  加载记忆失败: {e}", exc_info=True)
                 # 继续执行，不阻断流程
         
         # 2. 构建 Agent 配置
-        logger.debug(f"🔧 构建 Agent 配置")
+        logger.info(f"🔧 构建 Agent 配置")
         agent_config = self._build_agent_config(enhanced_query, request_config)
         
         # 3. 执行任务（Agent 内部使用 TaskContextMemory）
         logger.info(f"🚀 执行 Agent 任务：{query}")
-        final_summary = None  # 只保存最终总结
+        final_message = None  # 只保存最终回复
         
         try:
             async for stream_msg in self._run_agent(agent_config):
-                logger.debug(f"📤 收到流消息 - role: {stream_msg.role}, is_complete: {stream_msg.is_complete}, is_error: {stream_msg.is_error}")
+                logger.info(f"📤 收到流消息 - role: {stream_msg.role}, is_complete: {stream_msg.is_complete}, is_error: {stream_msg.is_error}")
                 
-                # 只收集 summarizer 的总结内容
-                if stream_msg.role == "summarizer" and not stream_msg.is_error:
-                    summary = stream_msg.output.get("summary", {})
-                    if isinstance(summary, dict):
-                        final_summary = summary.get("summary", "")
-                    else:
-                        final_summary = str(summary)
+                # 只收集 reply 的回复内容
+                if stream_msg.role == "reply" and not stream_msg.is_error:
+                    final_message = stream_msg.output.get("message", "")
                 
                 yield stream_msg
                 
@@ -108,14 +103,14 @@ class TaskHandler:
                     break
         
         finally:
-            # 4. 保存记忆 (User Memory) - 只保存总结
-            if enable_memory and final_summary:
-                logger.info(f"💾 保存任务记忆 - user_id: {user_id}")
+            # 4. 保存记忆 (User Memory) - 只保存回复内容
+            if enable_memory and final_message:
+                logger.info(f"💾 保存任务记忆 - user_id: {user_id}，query: {query}，final_message: {final_message}")
                 try:
                     await self.memory_manager.save_interaction(
                         user_id=user_id,
                         user_query=query,  # 保存原始 query，不是 enhanced
-                        assistant_response=final_summary
+                        assistant_response=final_message
                     )
                     logger.info(f"✅ 记忆保存成功")
                 except Exception as e:
@@ -139,7 +134,7 @@ class TaskHandler:
             try:
                 agent = Agent(send_callback, agent_config)
                 await agent.process()
-                # 不再需要额外的complete消息，summarizer已经标记is_complete=True
+                # 不再需要额外的complete消息，reply已经标记is_complete=True
             except Exception as e:
                 logger.error(f"❌ Agent 执行错误: {e}", exc_info=True)
                 await queue.put(StreamMessage(

@@ -26,21 +26,15 @@ cappuccino/
 │       ├── discord_bot.py          # Discord Bot (待实现)
 │       └── slack_bot.py            # Slack Bot (待实现)
 │
-├── agent/                          # Agent 核心（任务执行引擎）⭐ 重构
-│   ├── __init__.py
-│   ├── agent.py                    # Agent 主流程编排（循环执行）
-│   ├── planner.py                  # 规划器（统一规划和分发功能）⭐ 核心
-│   ├── executor.py                 # 执行器（操控电脑）
-│   ├── summarizer.py               # 任务总结器（生成最终总结）
-│   ├── memory.py                   # 任务上下文记忆（与 user memory 分离）
-│   ├── utils.py                    # 工具函数
-│   └── executors/                  # 内置执行器
+│   ├── agent/                       # Agent 核心（任务执行引擎）⭐ 重构
 │       ├── __init__.py
-│       ├── executor_list.json      # 执行器列表配置
-│       ├── code_executor.py        # 代码执行器（生成文件等）
-│       └── interact_executor.py    # 交互执行器（键鼠操作）
+│       ├── agent.py                 # Agent 主流程编排（循环执行）
+│       ├── planner.py               # 规划器（统一规划和分发功能）⭐ 核心
+│       ├── executor.py              # 执行器（键鼠操作、等待、滚动等）
+│       ├── memory.py                # 任务上下文记忆（与 user memory 分离）
+│       └── utils.py                 # 工具函数
 │
-├── config.py                       # 统一配置管理
+├── config.py                        # 统一配置管理
 ├── .env                            # 环境配置（不提交）
 ├── .env.example                    # 配置模板
 ├── pyproject.toml                  # 项目依赖
@@ -118,8 +112,10 @@ cappuccino/
   ║ ║ │ elif action["type"] == "modify_plan":         │  ║
   ║ ║ │   task_memory.set_plan(new_plan)             │  ║
   ║ ║ │                                                 │  ║
-  ║ ║ │ elif action["type"] == "end":                │  ║
-  ║ ║ │   break  # 结束循环                            │  ║
+  ║ ║ │ elif action["type"] == "reply":              │  ║
+  ║ ║ │   # 发送回复给用户，任务完成                  │  ║
+  ║ ║ │   send_reply(message)                         │  ║
+  ║ ║ │   break  # 结束循环                           │  ║
   ║ ║ └──────────────────────────────────────────────────┘  ║
   ║ ║                   ↓                                  ║  ║
   ║ ║ ┌─ 更新 TaskContextMemory                       ┐  ║
@@ -132,23 +128,21 @@ cappuccino/
   ║ ║ └──────────────────────────────────────────────────┘  ║
   ║ ║                   ↓                                  ║  ║
   ║ ║     iteration += 1                                  ║  ║
-  ║ ║                                                     ║  ║
   ║ ╚─ 结束循环 ─────────────────────────────────────────╝  ║
   ║                   ↓                                     ║  ║
-  ║ ┌─ Summarizer: 生成最终总结 ⭐                   ┐  ║
-  ║ │ summary = summarizer(                             │  ║
-  ║ │    task_memory.user_query,                      │  ║
-  ║ │    task_memory.dispatcher_actions                │  ║
-  ║ │ )                                                │  ║
-  ║ │ → {summary: str, actions: list}                 │  ║
-  ║ └────────────────────────────────────────────────┘  ║
+  ║ ┌─ Reply: 回复用户消息 ⭐                           ┐  ║
+  ║ │ 当 Planner 返回 reply 动作时                     │  ║
+  ║ │ - 发送 reply 消息给用户                          │  ║
+  ║ │ - 标记 is_complete=True                         │  ║
+  ║ │ → 任务结束                                       │  ║
+  ║ └────────────────────────────────────────────────────┘  ║
   ╚════════════════════════════════════════════════════════════╝
                             ↓
   ┌────────────────────────────────────────────────────────────┐
   │ 返回最终结果                                              │
   │                                                            │
-  │ - 发回 Telegram 消息 (final_summary)                      │
-  │ - 返回 HTTP SSE 流 (final_summary + actions)             │
+  │ - 发回 Telegram 消息 (final_message)                       │
+  │ - 返回 HTTP SSE 流 (final_message)                        │
   └────────────────────────────────────────────────────────────┘
 ```
 
@@ -160,8 +154,8 @@ cappuccino/
 - **职责**: 命令解析和路由（轻量级）
 - **功能**:
   - 解析命令类型 (/start, /help, /run, /screenshot)
-  - 简单命令直接处理（start, help, screenshot）
-  - 复杂任务委托给 handlers
+  - 快捷操作命令直接处理（start, help, screenshot）
+  - 任务委托给 handlers
 
 #### 2. Handlers (handlers.py) ⭐ **核心协调者**
 - **职责**: 业务逻辑编排
@@ -169,7 +163,7 @@ cappuccino/
   - 加载用户会话记忆 (User Memory - 对话历史)
   - 构建包含历史上下文的完整 prompt
   - 调用 Agent 执行任务
-  - 处理 Agent 返回的最终总结
+  - 处理 Agent 返回的 reply 消息
   - 保存用户会话记忆
 
 #### 3. Memory (memory/) - 用户对话历史
@@ -183,7 +177,7 @@ cappuccino/
 - **职责**: 平台 API 对接
 - **功能**: 只管收发消息，不处理业务逻辑
 
-### Agent 层（任务执行引擎）⭐ 重构
+### Agent 层（任务执行引擎）
 
 #### 1. Agent (agent.py) - 主流程编排
 - **职责**: 任务执行循环和协调
@@ -192,13 +186,9 @@ cappuccino/
   1. 初始规划: Planner.plan() 生成总体规划
   2. Loop (直到 Planner.dispatch 返回 end 或达到最大迭代次数):
      - Planner.dispatch: 根据规划、最近3次动作、当前截图决定下一步
-       - execute: 执行具体操作
-       - modify_plan: 修改规划
-       - end: 任务完成
      - Executor: 执行相关操作
      - 更新 TaskContextMemory
-  ↓
-  3. Summarizer: 生成最终总结
+
   ```
 
 #### 2. Planner (planner.py) - 统一规划器 ⭐ 核心
@@ -211,7 +201,7 @@ cappuccino/
   - 调用时机: 任务初始化时
 
   **dispatch() - 执行决策模式**
-  - 输入: 总规划、最近3次动作历史、当前截图
+  - 输入: 总规划、最近n次动作历史、当前截图
   - 输出动作类型:
     1. **execute** - 执行具体操作 (参数: executor, action)
     2. **save_info** - 保存信息到任务记忆 (参数: key, value)
@@ -219,21 +209,23 @@ cappuccino/
     4. **end** - 任务完成
   - 调用时机: 循环中每次迭代
 
-#### 3. Executor (executor.py) - 执行器管理
+#### 3. Executor (executor.py) - 执行器
 - **职责**: 电脑操控动作执行
-- **内置执行器**:
-  - `code_executor`: 执行 Python 代码（使用 planning 模型）
-  - `interact_executor`: 模拟键盘/鼠标交互（使用 grounding 模型）
-  - `wait`: 等待页面加载
+- **功能**: 模拟键盘/鼠标交互（使用 grounding 模型），包括：
+  - 点击操作: 左键点击、右键点击、双击等
+  - 输入操作: 键盘输入、快捷键
+  - 等待操作: 等待页面加载
+  - 滚动操作: 上下滚动
 - **返回**: 动作执行结果 + 屏幕状态变化
 
-#### 4. Summarizer (summarizer.py) - 任务总结器
-- **职责**: 生成最终任务总结
+#### 4. Reply 动作 - 任务结束
+- **触发条件**: Planner.dispatch() 返回 reply 动作类型
+- **参数**:
+  - message: 需要回复给用户的消息内容
 - **功能**:
-  - 基于 user_query 和 task_memory 生成总结
-  - 列出执行的所有动作和步骤
-  - 提供最终结果给用户
-  - 输出格式: `{summary: str, actions: list, result: str}`
+  - 当任务执行完成后，Planner 返回 reply 动作
+  - Agent 将 message 内容回复给用户
+  - 标记 is_complete=True，任务结束
 
 #### 5. TaskContextMemory (memory.py) - 任务上下文记忆
 - **职责**: 存储当前任务执行过程中的上下文（与 User Memory 分离）

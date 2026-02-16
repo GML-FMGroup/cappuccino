@@ -7,7 +7,6 @@ Agent 主流程编排
    - Planner: 生成或更新规划
    - Dispatcher: 分发执行子任务（Executor/MCP/Memory）
    - 更新 TaskContextMemory
-3. Summarizer: 生成最终总结
 """
 
 import json
@@ -18,13 +17,11 @@ import time
 import uuid
 import asyncio
 from functools import partial
-from typing import Dict, Callable, Optional
+from typing import Dict, Callable
 
 from .memory import TaskContextMemory
-from .utils import get_base64_screenshot
 from .planner import Planner
 from .executor import Executor
-from .summarizer import Summarizer
 
 
 class Agent:
@@ -95,14 +92,14 @@ class Agent:
     
     def _init_components(self):
         """初始化各组件"""
-        # Planning model 配置 (用于 planner, dispatcher, summarizer)
+        # Planning model 配置 (用于 planner)
         planning_config = {
             "api_key": self.data["planning_api_key"],
             "base_url": self.data["planning_base_url"],
             "model": self.data["planning_model"]
         }
         
-        # Grounding model 配置 (用于 interact_executor, scroll_executor)
+        # Grounding model 配置 (用于 executor)
         grounding_config = {
             "api_key": self.data["grounding_api_key"],
             "base_url": self.data["grounding_base_url"],
@@ -117,18 +114,10 @@ class Agent:
             run_folder=self.run_folder
         )
         
-        # 初始化 Executor (需要两种模型配置)
+        # 初始化 Executor (使用 grounding 模型)
         self.executor = Executor(
-            planning_config=planning_config,
             grounding_config=grounding_config,
             run_folder=self.run_folder
-        )
-        
-        # 初始化 Summarizer
-        self.summarizer = Summarizer(
-            api_key=planning_config["api_key"],
-            base_url=planning_config["base_url"],
-            model=planning_config["model"]
         )
 
     async def process(self):
@@ -137,7 +126,6 @@ class Agent:
         
         1. 初始规划：Planner.plan() 生成总体规划
         2. 循环执行：Planner.dispatch() 决定每一步动作
-        3. 总结：Summarizer 生成最终总结
         """
         try:
             self.logger.info(f"开始执行任务: {self.data['user_query'][:100]}...")
@@ -193,21 +181,31 @@ class Agent:
                         {"new_plan": new_plan}
                     )
                 
-                elif action_type == "end":
-                    # 任务完成
-                    self.logger.info("Dispatcher 返回 end，任务完成")
+                elif action_type == "reply":
+                    # 任务完成，回复用户
+                    reply_message = params.get("message", "任务已完成")
+                    self.logger.info(f"任务完成，回复用户: {reply_message}")
+                    
+                    # 记录动作
+                    self.task_memory.add_dispatcher_action(
+                        "reply",
+                        {"message": reply_message}
+                    )
+                    
+                    # 发送回复给用户，标记任务完成
+                    intermediate_output = {
+                        "message": reply_message
+                    }
+                    await self.send_callback("reply", intermediate_output, is_complete=True)
                     break
                 
                 else:
                     self.logger.warning(f"未知的动作类型: {action_type}")
                     
-                time.sleep(0.5)  # 避免过快循环
+                time.sleep(1)  # 避免过快循环
             
             if iteration >= max_iterations:
                 self.logger.warning(f"达到最大迭代次数 {max_iterations}，停止执行")
-            
-            # 生成最终总结
-            summary = await self._run_summarizer()
             
             self.logger.info("任务执行完成")
             
@@ -217,50 +215,37 @@ class Agent:
     
     async def _handle_execute_action(self, params: Dict):
         """处理 execute 动作"""
-        executor_name = params.get("executor", "")
         action_desc = params.get("action", "")
         
-        self.logger.info(f"执行动作: {executor_name} - {action_desc}")
+        self.logger.info(f"执行动作: {action_desc}")
         
         # 调用 Executor
-        await self._run_executor({
-            "executor": executor_name,
-            "action": action_desc
-        })
+        await self._run_executor(action_desc)
         
         # 记录动作
         self.task_memory.add_dispatcher_action(
             "execute",
-            {"executor": executor_name, "action": action_desc}
+            {"action": action_desc}
         )
     
-    async def _run_executor(self, action_dict: Dict):
+    async def _run_executor(self, action: str):
         """运行执行器"""
         loop = asyncio.get_event_loop()
         completion, actions = await loop.run_in_executor(
             None,
-            partial(self.executor, action_dict, self.task_memory)
+            partial(self.executor, action, self.task_memory)
         )
-        
-        # 确定使用的模型
-        executor_type = action_dict.get("executor", "")
-        if executor_type in ["interact_executor", "scroll_executor"]:
-            model_name = self.data["grounding_model"]
-        else:
-            model_name = self.data["planning_model"]
         
         self.logger.info(
             f"Executor 结果:\n"
-            f"  model: {model_name}\n"
-            f"  executor: {executor_type}\n"
-            f"  action: {action_dict.get('action', '')}\n"
+            f"  model: {self.data['grounding_model']}\n"
+            f"  action: {action}\n"
             f"  actions: {actions}"
         )
         
         intermediate_output = {
-            "model": model_name,
-            "executor": executor_type,
-            "action": action_dict.get('action', ''),
+            "model": self.data["grounding_model"],
+            "action": action,
             "actions": actions
         }
         await self.send_callback("executor", intermediate_output)
@@ -313,27 +298,4 @@ class Agent:
         await self.send_callback("planner", intermediate_output)
         
         return completion, thinking, action
-    
-    async def _run_summarizer(self) -> Dict:
-        """运行总结器"""
-        loop = asyncio.get_event_loop()
-        summary = await loop.run_in_executor(
-            None,
-            partial(self.summarizer, self.task_memory)
-        )
-        
-        self.logger.info(
-            f"Summarizer 结果:\n"
-            f"  model: {self.data['planning_model']}\n"
-            f"  summary: {summary}"
-        )
-        
-        intermediate_output = {
-            "model": self.data["planning_model"],
-            "summary": summary
-        }
-        # 发送总结结果，标记任务完成
-        await self.send_callback("summarizer", intermediate_output, is_complete=True)
-        
-        return summary
 

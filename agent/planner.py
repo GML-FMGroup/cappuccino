@@ -6,7 +6,6 @@
 - 执行模式 (dispatch): 根据当前状态决定下一步动作
 """
 
-import os
 import json
 import platform
 from typing import Tuple, List, Dict, Optional
@@ -136,18 +135,6 @@ class Planner:
             return "规划解析失败", content
 
     # ==================== 执行决策模式 ====================
-    
-    def _get_executor_description(self) -> str:
-        """获取执行器描述"""
-        executor_list_path = os.path.join(os.path.dirname(__file__), "executors", "executor_list.json")
-        with open(executor_list_path, 'r', encoding='utf-8') as f:
-            executors = json.load(f)
-        
-        lines = []
-        for executor in executors:
-            lines.append(f"- {executor['name']}: {executor['description']}")
-        
-        return "\n".join(lines)
 
     def _get_dispatch_system_prompt(self) -> str:
         """获取执行决策的系统提示"""
@@ -156,16 +143,17 @@ class Planner:
 ## 系统信息
 - 当前操作系统: {self.controlled_os}
 
-## 可用执行器
-
-{self._get_executor_description()}
-
 ## 动作类型
 
-1. **execute** - 执行具体操作
+1. **execute** - 执行鼠标点击、键盘输入、快捷键、等待、滚动。模拟人类操作电脑。
    参数:
-   - executor: 执行器名称 (interact_executor, code_executor, wait)
-   - action: 具体操作描述 (不需要涉及具体坐标，语义化描述即可)
+   - action: 具体操作描述，包括：
+     - 点击操作: "点击XX按钮"、"双击XX图标"
+     - 输入操作: "在搜索框输入XX"
+     - 键盘操作: "按下回车键"、"按Ctrl+C复制"
+     - 等待操作: "等待页面加载"（等待1-2秒）
+     - 滚动操作: "向上滚动"、"向下滚动"
+     - 不需要涉及具体坐标，语义化描述即可
 
 2. **save_info** - 保存重要信息到记忆
    参数:
@@ -178,15 +166,16 @@ class Planner:
    参数:
    - new_plan: 修改后的规划（字符串，包含所有步骤）
 
-4. **end** - 任务完成，结束执行
-   参数: (无)
+4. **reply** - 任务完成，回复用户
+   参数:
+   - message: 需要回复给用户的消息内容
 
 ## 决策原则
 
 1. **基于现状**：根据当前截图、历史动作和总规划决策
 2. **循序渐进**：每次只执行一个具体动作，如：点击xx、输入xx、回车，这都分别算一个动作，不允许一次执行多个动作
 3. **灵活调整**：如果发现规划不符合实际，使用 modify_plan
-4. **及时结束**：当所有步骤完成时，使用 end
+4. **及时回复**：当所有步骤完成时，使用 reply 回复用户
 
 ## 输出格式
 
@@ -194,10 +183,9 @@ class Planner:
 {{
     "thinking": "分析当前状态，说明决策原因",
     "action": {{
-        "type": "execute|save_info|modify_plan|end",
+        "type": "execute|save_info|modify_plan|reply",
         "params": {{
             // execute:
-            "executor": "执行器名称",
             "action": "操作描述",
             
             // save_info:
@@ -207,7 +195,8 @@ class Planner:
             // modify_plan:
             "new_plan": "修改后的规划",
             
-            // end: 无params
+            // reply:
+            "message": "回复用户的消息内容"
         }}
     }}
 }}

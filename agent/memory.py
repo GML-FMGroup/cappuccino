@@ -19,7 +19,7 @@ class DispatcherAction:
     def __init__(self, action_type: str, params: Dict):
         """
         Args:
-            action_type: 动作类型 ("execute", "modify_plan", "end")
+            action_type: 动作类型 ("execute", "modify_plan", "reply")
             params: 动作参数
         """
         self.action_type = action_type
@@ -132,7 +132,7 @@ class TaskContextMemory:
         记录 Dispatcher 的动作（完整保存）
         
         Args:
-            action_type: 动作类型 ("execute", "modify_plan", "end")
+            action_type: 动作类型 ("execute", "modify_plan", "reply")
             params: 动作参数
         """
         self.current_step += 1
