@@ -29,8 +29,6 @@
 
 https://github.com/user-attachments/assets/5949cd2f-92f1-4e2a-a1da-831cb7e08607
 
-https://github.com/user-attachments/assets/c3f7d0cc-a3c2-4ea3-956e-738bb1edda10
-
 ## 👨‍💻 快速开始
 
 ### 0. 硬件准备
