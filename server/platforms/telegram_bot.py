@@ -183,12 +183,9 @@ class TelegramBotService:
         await self.app.start()
         await self.app.updater.start_polling(drop_pending_updates=True)
         
-        print("✅ Telegram Bot 已启动")
-    
     async def stop(self):
         """停止 Telegram Bot"""
         if self.app:
             await self.app.updater.stop()
             await self.app.stop()
             await self.app.shutdown()
-            print("🛑 Telegram Bot 已停止")

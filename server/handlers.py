@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from agent.agent import Agent
 from config import config
 from server.memory import MemoryManager, ContextBuilder
+from server.mcp_config import get_mcp_servers
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +91,7 @@ class TaskHandler:
         
         try:
             async for stream_msg in self._run_agent(agent_config):
-                logger.info(f"📤 收到流消息 - role: {stream_msg.role}, is_complete: {stream_msg.is_complete}, is_error: {stream_msg.is_error}")
+                logger.info(f"📤 收到流消息 - role: {stream_msg.role}, is_complete: {stream_msg.is_complete}, is_error: {stream_msg.is_error}, output: {stream_msg.output}")
                 
                 # 只收集 reply 的回复内容
                 if stream_msg.role == "reply" and not stream_msg.is_error:
@@ -182,6 +183,8 @@ class TaskHandler:
             # 任务配置
             "max_iterations": config.memory.max_iterations,
             "task_max_memory_steps": config.memory.task_max_memory_steps,
+            # MCP 服务器配置
+            "mcp_servers": get_mcp_servers()
         }
 
 

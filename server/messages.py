@@ -50,8 +50,8 @@ def format_exec_error(error: str) -> str:
 # Role Icons
 ROLE_ICONS = {
     "planner": "🧠",
-    "executor": "✍️",
-    "reply": "📋"
+    "executor": "🔧",
+    "reply": "🤖"
 }
 
 def format_role_output(role: str, output: dict) -> str:
@@ -96,7 +96,7 @@ def format_role_output(role: str, output: dict) -> str:
             action_summary = ", ".join([a.get("name", "") for a in actions[:3]])
             if len(actions) > 3:
                 action_summary += f" +{len(actions)-3} more"
-            return f"{icon} Executor\n🎯 Task: {action_desc[:80]}\n⚡ Actions: {action_summary}"
+            return f"{icon} Executor\n🎯 Task: {action_desc[:80]}\n⌨️ Actions: {action_summary}"
         elif actions:
             return f"{icon} Executor: {len(actions)} action(s)"
         elif action_desc:

@@ -42,26 +42,12 @@ class ContextBuilder:
             if role == "user":
                 context_parts.append(f"[{idx}] 用户: {content}")
             elif role == "assistant":
-                # 简化 assistant 响应，只保留关键信息
-                summary = ContextBuilder._summarize_response(content)
-                context_parts.append(f"[{idx}] 助手: {summary}")
+                context_parts.append(f"[{idx}] 助手: {content}")
         
         context_parts.append("\n# 当前任务")
         context_parts.append(current_query)
         
         return "\n".join(context_parts)
-    
-    @staticmethod
-    def _summarize_response(response: str, max_length: int = 100) -> str:
-        """
-        简化 assistant 响应
-        避免上下文过长
-        """
-        if len(response) <= max_length:
-            return response
-        
-        # 简单截断，保留开头
-        return response[:max_length] + "..."
     
     @staticmethod
     def extract_key_info(history: List[Dict]) -> Dict:

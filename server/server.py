@@ -109,7 +109,7 @@ def main():
         print(f"   - 本地:     http://127.0.0.1:{port}")
         if local_ip and local_ip != "127.0.0.1":
             print(f"   - 局域网:   http://{local_ip}:{port}")
-        print(f"\n📋 可用端点:")
+        print(f"\n📡 可用端点:")
         print(f"   - POST /chat")
         print(f"   - POST /screenshot")
         print(f"   - POST /screenshot/stream")
@@ -136,7 +136,7 @@ def main():
         
         bot_thread = threading.Thread(target=run_telegram_bot, daemon=True)
         bot_thread.start()
-        print(f"✅ Telegram Bot 已启用 (后台运行)")
+        print(f"✅ Telegram Bot 已启用")
     else:
         print("⊘ Telegram Bot 未启用")
     

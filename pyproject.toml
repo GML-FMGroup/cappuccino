@@ -3,7 +3,7 @@ name = "cappuccino"
 version = "0.1.0"
 description = "一个解放你双手的本地自动化智能体"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "fastapi==0.115.8",
     "ipython==8.12.3",
@@ -25,6 +25,7 @@ dependencies = [
     "pandas",
     "python-telegram-bot==21.10",
     "python-dotenv==1.0.1",
+    "mcp>=1.6.0",
 ]
 
 [build-system]

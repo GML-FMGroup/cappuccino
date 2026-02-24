@@ -22,6 +22,7 @@ from typing import Dict, Callable
 from .memory import TaskContextMemory
 from .planner import Planner
 from .executor import Executor
+from .mcp import MCPClientManager, get_mcp_client_manager
 
 
 class Agent:
@@ -36,6 +37,7 @@ class Agent:
         - user_query
         - max_iterations (可选，默认 10)
         - max_retry_per_task (可选，默认 3)
+        - mcp_servers (可选，MCP服务器配置字典)
     """
 
     def __init__(self, send_callback: Callable, data: Dict):
@@ -59,6 +61,9 @@ class Agent:
         self.max_retry_per_task = data.get("max_retry_per_task", 3)
         self.task_max_memory_steps = data.get("task_max_memory_steps", 10)
         
+        # MCP服务器配置
+        self.mcp_servers = data.get("mcp_servers", {})
+        
         # 初始化任务上下文记忆
         self.task_id = str(uuid.uuid4())[:8]
         self.task_memory = TaskContextMemory(
@@ -67,7 +72,7 @@ class Agent:
             run_folder=self.run_folder
         )
         
-        # 初始化各组件
+        # 初始化各组件（MCP Client在process中异步初始化）
         self._init_components()
         
         self.logger.info(f"Agent 初始化完成 - task_id: {self.task_id}")
@@ -91,7 +96,7 @@ class Agent:
         return logger
     
     def _init_components(self):
-        """初始化各组件"""
+        """初始化各组件（同步部分）"""
         # Planning model 配置 (用于 planner)
         planning_config = {
             "api_key": self.data["planning_api_key"],
@@ -106,12 +111,17 @@ class Agent:
             "model": self.data["grounding_model"]
         }
         
+        # 初始化 MCP Client Manager（仅创建实例，不初始化连接）
+        self.mcp_client = get_mcp_client_manager()
+        self.logger.info(f"MCP Client Manager 已创建，将在 process() 中初始化")
+        
         # 初始化 Planner (统一规划和分发功能)
         self.planner = Planner(
             api_key=planning_config["api_key"],
             base_url=planning_config["base_url"],
             model=planning_config["model"],
-            run_folder=self.run_folder
+            run_folder=self.run_folder,
+            mcp_client=self.mcp_client
         )
         
         # 初始化 Executor (使用 grounding 模型)
@@ -119,6 +129,22 @@ class Agent:
             grounding_config=grounding_config,
             run_folder=self.run_folder
         )
+    
+    async def _init_mcp(self):
+        """异步初始化 MCP Client，连接配置的 MCP 服务器"""
+        if not self.mcp_servers:
+            self.logger.info("未配置 MCP 服务器，跳过初始化")
+            return
+        
+        for server_name, server_config in self.mcp_servers.items():
+            try:
+                success = await self.mcp_client.add_server(server_name, server_config)
+                if success:
+                    self.logger.info(f"MCP 服务器 '{server_name}' 连接成功")
+                else:
+                    self.logger.warning(f"MCP 服务器 '{server_name}' 连接失败")
+            except Exception as e:
+                self.logger.error(f"连接 MCP 服务器 '{server_name}' 时出错: {e}")
 
     async def process(self):
         """
@@ -129,6 +155,9 @@ class Agent:
         """
         try:
             self.logger.info(f"开始执行任务: {self.data['user_query'][:100]}...")
+            
+            # 异步初始化 MCP
+            await self._init_mcp()
             
             # 第一步：生成初始规划
             await self._run_initial_plan()
@@ -181,6 +210,10 @@ class Agent:
                         {"new_plan": new_plan}
                     )
                 
+                elif action_type == "mcp":
+                    # 执行MCP动作
+                    await self._handle_mcp_action(params)
+                
                 elif action_type == "reply":
                     # 任务完成，回复用户
                     reply_message = params.get("message", "任务已完成")
@@ -212,6 +245,14 @@ class Agent:
         except Exception as e:
             self.logger.error(f"任务执行失败: {e}", exc_info=True)
             raise
+        finally:
+            # 清理MCP资源
+            if self.mcp_client:
+                try:
+                    await self.mcp_client.close_all()
+                    self.logger.info("MCP Client 已关闭")
+                except Exception as e:
+                    self.logger.warning(f"关闭 MCP Client 时出错: {e}")
     
     async def _handle_execute_action(self, params: Dict):
         """处理 execute 动作"""
@@ -227,6 +268,92 @@ class Agent:
             "execute",
             {"action": action_desc}
         )
+    
+    async def _handle_mcp_action(self, params: Dict):
+        """处理 MCP 动作"""
+        server_name = params.get("server", "")
+        tool_name = params.get("tool", "")
+        tool_params = params.get("params", {})
+        
+        self.logger.info(f"执行MCP动作: server={server_name}, tool={tool_name}")
+        
+        if not self.mcp_client or not self.mcp_client.list_servers():
+            error_msg = "MCP Client 未初始化或无可用服务器"
+            self.logger.error(error_msg)
+            
+            # 记录失败结果
+            self.task_memory.add_dispatcher_action(
+                "mcp",
+                {
+                    "server": server_name,
+                    "tool": tool_name,
+                    "params": tool_params,
+                    "success": False,
+                    "error": error_msg
+                }
+            )
+            
+            intermediate_output = {
+                "server": server_name,
+                "tool": tool_name,
+                "success": False,
+                "error": error_msg
+            }
+            await self.send_callback("mcp", intermediate_output)
+            return
+        
+        try:
+            # 执行MCP工具调用
+            result = await self.mcp_client.call_tool(server_name, tool_name, tool_params)
+            
+            # 存储结果到TaskContextMemory
+            self.task_memory.add_dispatcher_action(
+                "mcp",
+                {
+                    "server": server_name,
+                    "tool": tool_name,
+                    "params": tool_params,
+                    "success": result.success,
+                    "data_summary": result.data if result.success else None,
+                    "error": result.error_message if not result.success else None
+                }
+            )
+            
+            self.logger.info(f"MCP执行结果: success={result.success}, data_summary={result.data if result.success else None}")
+            
+            # 发送回调
+            intermediate_output = {
+                "server": server_name,
+                "tool": tool_name,
+                "success": result.success,
+                "data": result.data,
+                "error": result.error_message if not result.success else None
+            }
+            await self.send_callback("mcp", intermediate_output)
+            
+        except Exception as e:
+            error_msg = str(e)
+            self.logger.error(f"MCP执行异常: {error_msg}")
+            
+            # 记录失败结果
+            self.task_memory.add_dispatcher_action(
+                "mcp",
+                {
+                    "server": server_name,
+                    "tool": tool_name,
+                    "params": tool_params,
+                    "success": False,
+                    "error": error_msg
+                }
+            )
+            
+            intermediate_output = {
+                "server": server_name,
+                "tool": tool_name,
+                "success": False,
+                "error": error_msg
+            }
+            await self.send_callback("mcp", intermediate_output)
     
     async def _run_executor(self, action: str):
         """运行执行器"""
@@ -298,4 +425,3 @@ class Agent:
         await self.send_callback("planner", intermediate_output)
         
         return completion, thinking, action
-

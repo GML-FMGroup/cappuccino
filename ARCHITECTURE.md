@@ -32,6 +32,9 @@ cappuccino/
 │       ├── planner.py               # 规划器（统一规划和分发功能）⭐ 核心
 │       ├── executor.py              # 执行器（键鼠操作、等待、滚动等）
 │       ├── memory.py                # 任务上下文记忆（与 user memory 分离）
+│       ├── mcp/                     # MCP (Model Context Protocol) 模块 ⭐ 基于官方SDK
+│       │   ├── __init__.py          # 导出 MCPClientManager, MCPToolCall, MCPToolResult
+│       │   └── client.py            # MCP客户端管理器（基于官方mcp>=1.6.0 SDK）
 │       └── utils.py                 # 工具函数
 │
 ├── config.py                        # 统一配置管理
@@ -84,6 +87,7 @@ cappuccino/
   ║ Agent 层 (agent.py) ⭐ 任务执行引擎 [统一 Planner]         ║
   ║                                                            ║
   ║ 初始化: TaskContextMemory(task_id, user_query)          ║
+  ║         MCPClientManager (异步初始化MCP服务器连接) ⭐     ║
   ║                                                            ║
   ║ ┌─ 步骤 1: Planner.plan() 生成初始规划              ┐  ║
   ║ │ plan = planner.plan(user_query)                     │  ║
@@ -97,7 +101,8 @@ cappuccino/
   ║ ║ │ action = planner.dispatch(task_memory)           │  ║
   ║ ║ │                                                  │  ║
   ║ ║ │ 返回: {                                          │  ║
-  ║ ║ │   "type": "execute|save_info|modify_plan|end", │  ║
+  ║ ║ │   "type": "execute|save_info|modify_plan|        │  ║
+  ║ ║ │            mcp|reply",  ⭐ 新增 mcp 类型         │  ║
   ║ ║ │   "params": {...}                              │  ║
   ║ ║ │ }                                               │  ║
   ║ ║ └──────────────────────────────────────────────────┘  ║
@@ -105,6 +110,10 @@ cappuccino/
   ║ ║ ┌─ 动作处理                                       ┐  ║
   ║ ║ │ if action["type"] == "execute":               │  ║
   ║ ║ │   result = executor.execute(action["params"]) │  ║
+  ║ ║ │                                                 │  ║
+  ║ ║ │ elif action["type"] == "mcp": ⭐ 新增         │  ║
+  ║ ║ │   result = mcp_client.call_tool(              │  ║
+  ║ ║ │       server, tool, params)                   │  ║
   ║ ║ │                                                 │  ║
   ║ ║ │ elif action["type"] == "save_info":           │  ║
   ║ ║ │   task_memory.save_info(key, value)          │  ║
@@ -183,12 +192,13 @@ cappuccino/
 - **职责**: 任务执行循环和协调
 - **流程**: 
   ```
-  1. 初始规划: Planner.plan() 生成总体规划
-  2. Loop (直到 Planner.dispatch 返回 end 或达到最大迭代次数):
+  1. 初始化 MCP Manager ⭐ [新增]
+  2. 初始规划: Planner.plan() 生成总体规划
+  3. Loop (直到 Planner.dispatch 返回 end 或达到最大迭代次数):
      - Planner.dispatch: 根据规划、最近3次动作、当前截图决定下一步
-     - Executor: 执行相关操作
-     - 更新 TaskContextMemory
-
+     - Executor/MCP: 执行相关操作 ⭐ [MCP为新增]
+     - 更新 TaskContextMemory (包含MCP结果)
+ ║ 4. 清理: MCP Client 关闭所有连接 ⭐ [新增]
   ```
 
 #### 2. Planner (planner.py) - 统一规划器 ⭐ 核心
@@ -201,15 +211,91 @@ cappuccino/
   - 调用时机: 任务初始化时
 
   **dispatch() - 执行决策模式**
-  - 输入: 总规划、最近n次动作历史、当前截图
+  - 输入: 总规划、最近n次动作历史、当前截图、MCP执行结果（作为历史动作的一部分）
   - 输出动作类型:
     1. **execute** - 执行具体操作 (参数: executor, action)
-    2. **save_info** - 保存信息到任务记忆 (参数: key, value)
-    3. **modify_plan** - 修改总规划 (参数: new_plan)
-    4. **end** - 任务完成
+    2. **mcp** - 执行MCP工具调用 ⭐ [新增] (参数: server, tool, params)
+    3. **save_info** - 保存信息到任务记忆 (参数: key, value)
+    4. **modify_plan** - 修改总规划 (参数: new_plan)
+    5. **reply** - 任务完成
   - 调用时机: 循环中每次迭代
+  - MCP工具信息: 动态从已连接的MCP服务器获取，自动添加到Prompt中
 
-#### 3. Executor (executor.py) - 执行器
+#### 3. MCP 模块 (mcp/) ⭐ **基于官方SDK**
+
+##### 3.1 架构设计
+```
+┌─────────────────────────────────────────────────────────────┐
+│              MCPClientManager (client.py)                   │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  基于官方 mcp>=1.6.0 Python SDK                      │   │
+│  │  - 管理多个MCP服务器连接 (stdio/SSE)                 │   │
+│  │  - 动态发现和缓存服务器工具列表                      │   │
+│  │  - 提供统一的工具调用接口                            │   │
+│  │  - 自动生成LLM可用的工具描述                         │   │
+│  └─────────────────────────────────────────────────────┘   │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+        ┌──────────────────┼──────────────────┐
+        ↓                  ↓                  ↓
+┌───────────────┐  ┌───────────────┐  ┌───────────────┐
+│ MCP Server 1  │  │ MCP Server 2  │  │ MCP Server N  │
+│(filesystem)   │  │   (sqlite)    │  │   (github)    │
+│               │  │               │  │               │
+│ - read_file   │  │ - query       │  │ - create_issue│
+│ - write_file  │  │ - execute     │  │ - get_repo    │
+│ - list_dir    │  │ - create_table│  │ - search_code │
+└───────────────┘  └───────────────┘  └───────────────┘
+```
+
+##### 3.2 核心组件
+
+**MCPClientManager (client.py)**
+- 基于官方 MCP Python SDK 的客户端包装器
+- 功能:
+  - `add_server(name, config)`: 异步添加并连接MCP服务器
+  - `remove_server(name)`: 移除服务器连接
+  - `list_servers()`: 列出所有已连接的服务器
+  - `list_tools(server_name)`: 列出可用工具
+  - `get_tool_info(server, tool)`: 获取工具详细信息
+  - `call_tool(server, tool, params)`: 调用MCP工具
+  - `close_all()`: 关闭所有连接
+  - `get_tools_for_prompt()`: 生成LLM可用的工具描述
+
+**MCPToolCall (client.py)**
+- MCP工具调用数据类
+- 字段:
+  - `server_name`: 服务器名称
+  - `tool_name`: 工具名称
+  - `arguments`: 工具参数
+
+**MCPToolResult (client.py)**
+- MCP工具调用结果数据类
+- 字段:
+  - `success`: 是否成功
+  - `server_name`: 服务器名称
+  - `tool_name`: 工具名称
+  - `data`: 返回数据
+  - `error_message`: 错误信息
+
+##### 3.3 配置方式
+MCP服务器通过 `mcp_servers` 参数配置：
+
+```python
+"mcp_servers": {
+    "filesystem": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/user"],
+        "env": {}  # 可选环境变量
+    },
+    "sqlite": {
+        "command": "python",
+        "args": ["-m", "mcp_server_sqlite", "/path/to/db.sqlite"]
+    }
+}
+```
+
+#### 4. Executor (executor.py) - 执行器
 - **职责**: 电脑操控动作执行
 - **功能**: 模拟键盘/鼠标交互（使用 grounding 模型），包括：
   - 点击操作: 左键点击、右键点击、双击等
@@ -218,7 +304,7 @@ cappuccino/
   - 滚动操作: 上下滚动
 - **返回**: 动作执行结果 + 屏幕状态变化
 
-#### 4. Reply 动作 - 任务结束
+#### 5. Reply 动作 - 任务结束
 - **触发条件**: Planner.dispatch() 返回 reply 动作类型
 - **参数**:
   - message: 需要回复给用户的消息内容
@@ -227,14 +313,14 @@ cappuccino/
   - Agent 将 message 内容回复给用户
   - 标记 is_complete=True，任务结束
 
-#### 5. TaskContextMemory (memory.py) - 任务上下文记忆
+#### 6. TaskContextMemory (memory.py) - 任务上下文记忆 ⭐ **扩展**
 - **职责**: 存储当前任务执行过程中的上下文（与 User Memory 分离）
 - **功能**:
   - 初始化: `TaskContextMemory(task_id, user_query, run_folder)`
   - 记录信息:
     - 用户原始输入 (user_query - 不可变)
     - 当前规划 (current_plan - 可更新)
-    - 所有历史动作（完整保存，读取时可筛选最近 N 条）
+    - **所有历史动作**（完整保存，读取时可筛选最近 N 条，**包含MCP执行结果**）⭐ [扩展]
     - 保存的重要信息 (saved_info - key-value 存储)
     - 当前执行步骤数
     - 任务状态
@@ -242,9 +328,14 @@ cappuccino/
   - 提供方法：
     - `set_plan()`: 设置/更新规划
     - `save_info()`: 保存关键信息
-    - `add_dispatcher_action()`: 添加动作记录
-    - `get_recent_actions(n)`: 获取最近 N 条动作
+    - `add_dispatcher_action()`: 添加动作记录（MCP结果作为mcp类型动作存储）⭐ [扩展]
+    - `get_recent_actions(n)`: 获取最近 N 条动作（包含MCP执行历史）
     - `get_all_actions()`: 获取所有动作
+    - `get_actions_by_type(type)`: 按类型获取动作 ⭐ [新增]
+    - **MCP相关方法** ⭐ [新增]:
+      - `get_mcp_actions()`: 获取MCP类型的动作
+      - `has_mcp_results()`: 检查是否有MCP结果
+      - `get_last_mcp_result()`: 获取最近的MCP结果
 
 ### 内存系统对比
 
@@ -252,7 +343,7 @@ cappuccino/
 |------|------|------|
 | **存储位置** | 用户数据库 (SQLite) | Agent 内存（任务结束清理） |
 | **生命周期** | 跨多个任务、永久保存 | 单个任务内、临时存储 |
-| **内容** | 用户历史对话、交互记录 | 当前任务的执行步骤、屏幕状态、MCP 结果 |
+| **内容** | 用户历史对话、交互记录 | 当前任务的执行步骤、屏幕状态、**MCP 结果** ⭐ |
 | **访问时机** | Handlers 加载 (task 开始时) | Planner 使用 (loop 内) |
 | **更新时机** | Handlers 保存 (task 结束时) | Planner 更新 (每个步骤后) |
 | **用途** | 维持对话连贯性 | 支持规划迭代和动态决策 |
