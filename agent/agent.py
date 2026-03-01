@@ -185,6 +185,18 @@ class Agent:
                     # 执行具体操作
                     await self._handle_execute_action(params)
                 
+                elif action_type == "wait":
+                    # 等待操作
+                    wait_time = params.get("time", 0.5)
+                    self.logger.info(f"等待 {wait_time} 秒")
+                    await asyncio.sleep(wait_time)
+                    
+                    # 记录动作
+                    self.task_memory.add_dispatcher_action(
+                        "wait",
+                        {"time": wait_time}
+                    )
+                
                 elif action_type == "save_info":
                     # 保存信息到记忆
                     key = params.get("key", "")
@@ -235,8 +247,6 @@ class Agent:
                 else:
                     self.logger.warning(f"未知的动作类型: {action_type}")
                     
-                time.sleep(1)  # 避免过快循环
-            
             if iteration >= max_iterations:
                 self.logger.warning(f"达到最大迭代次数 {max_iterations}，停止执行")
             
@@ -262,6 +272,9 @@ class Agent:
         
         # 调用 Executor
         await self._run_executor(action_desc)
+        
+        # 等待 1 秒，确保页面加载完成后再截图
+        await asyncio.sleep(1)
         
         # 记录动作
         self.task_memory.add_dispatcher_action(
